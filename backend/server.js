@@ -21,6 +21,7 @@ const notificationRoutes = require('./routes/notification');
 const journalRoutes = require('./routes/journal');
 const taskRoutes = require('./routes/task');
 const adminRoutes = require('./routes/admin');
+const videoCallRoutes = require('./routes/videoCall');
 
 // Import middleware
 const errorHandler = require('./middleware/errorHandler');
@@ -88,6 +89,7 @@ app.use('/api/notifications', authMiddleware, notificationRoutes);
 app.use('/api/journal', authMiddleware, journalRoutes);
 app.use('/api/tasks', authMiddleware, taskRoutes);
 app.use('/api/admin', authMiddleware, adminRoutes);
+app.use('/api/video-call', authMiddleware, videoCallRoutes);
 
 // Socket.IO connection handling
 io.on('connection', (socket) => {

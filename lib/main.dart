@@ -9,6 +9,7 @@ import 'features/auth/presentation/pages/onboarding_screen.dart';
 import 'features/auth/presentation/pages/login_screen.dart';
 import 'features/auth/presentation/pages/register_screen.dart';
 import 'features/home/presentation/pages/main_navigation.dart';
+import 'features/video_call/screens/call_initiation_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -54,6 +55,7 @@ class HearthTrackApp extends StatelessWidget {
         '/login': (context) => const LoginScreen(),
         '/register': (context) => const RegisterScreen(),
         '/home': (context) => const MainNavigation(),
+        '/video_call': (context) => const CallInitiationScreen(),
       },
       onGenerateRoute: (settings) {
         // Handle dynamic routes here if needed

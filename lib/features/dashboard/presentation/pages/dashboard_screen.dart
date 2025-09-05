@@ -38,6 +38,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
               // Recommendations
               _buildRecommendations(),
+              const SizedBox(height: 24),
+
+              // Video Call Section
+              _buildVideoCallSection(),
             ],
           ),
         ),
@@ -415,6 +419,95 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 onPressed: () {},
                 type: ButtonType.primary,
                 height: 40,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildVideoCallSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Video Consultation',
+          style: AppTheme.heading3.copyWith(
+            color: AppTheme.textPrimary,
+          ),
+        ),
+        const SizedBox(height: 16),
+        Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                Colors.blue.withOpacity(0.1),
+                Colors.purple.withOpacity(0.1),
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    Icons.video_call,
+                    color: Colors.blue,
+                    size: 24,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Virtual Therapy Session',
+                    style: AppTheme.bodyLarge.copyWith(
+                      color: Colors.blue,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Connect with healthcare professionals through secure video calls. Start or join a therapy session.',
+                style: AppTheme.bodyLarge.copyWith(
+                  color: AppTheme.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: CustomButton(
+                      text: 'Start Video Call',
+                      onPressed: () {
+                        Navigator.pushNamed(context, '/video_call');
+                      },
+                      type: ButtonType.primary,
+                      height: 40,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: CustomButton(
+                      text: 'Schedule',
+                      onPressed: () {
+                        // TODO: Implement scheduling
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Scheduling feature coming soon!'),
+                          ),
+                        );
+                      },
+                      type: ButtonType.secondary,
+                      height: 40,
+                    ),
+                  ),
+                ],
               ),
             ],
           ),

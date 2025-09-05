@@ -1,8 +1,12 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const videoCallHandlers = require('./videoCallHandlers');
 
 const socketHandlers = (socket, io) => {
   console.log('New socket connection:', socket.id);
+
+  // Initialize video call handlers
+  videoCallHandlers(socket, io);
 
   // Authenticate socket connection
   socket.on('authenticate', async (token) => {
