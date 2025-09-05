@@ -1,0 +1,68 @@
+name: hearth_track
+description: "A comprehensive health and fitness tracking application"
+publish_to: 'none' # Remove this line if you wish to publish to pub.dev
+
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.2.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # State Management
+  flutter_riverpod: ^2.4.9
+  
+  # HTTP & Networking
+  dio: ^5.4.0
+  http: ^1.1.2
+  
+  # Storage & Caching
+  shared_preferences: ^2.2.2
+  
+  # Media & Files
+  image_picker: ^1.0.5
+  
+  # Utilities
+  intl: ^0.18.1
+  logger: ^2.0.2+1
+  equatable: ^2.0.5
+  
+  # Charts & Data Visualization
+  fl_chart: ^0.65.0
+  
+  # UI Components
+  shimmer: ^3.0.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+# For information on the generic Dart part of this file, see the
+# following page: https://dart.dev/tools/pub/pubspec
+
+# The following section is specific to Flutter packages.
+flutter:
+  uses-material-design: true
+
+  # Assets
+  assets:
+    - assets/images/
+    - assets/icons/
+    - assets/animations/
+    - assets/audio/
+    - assets/videos/
+
+  # Fonts - Using default system fonts for now
+  # fonts:
+  #   - family: Poppins
+  #     fonts:
+  #       - asset: assets/fonts/Poppins-Regular.ttf
+  #       - asset: assets/fonts/Poppins-Medium.ttf
+  #         weight: 500
+  #       - asset: assets/fonts/Poppins-SemiBold.ttf
+  #         weight: 600
+  #       - asset: assets/fonts/Poppins-Bold.ttf
+  #         weight: 700
