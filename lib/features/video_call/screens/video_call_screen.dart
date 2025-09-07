@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../providers/video_call_provider.dart';
-import '../widgets/video_call_grid.dart';
+import '../providers/basic_video_call_provider.dart';
 import '../widgets/video_call_controls.dart';
 
 class VideoCallScreen extends ConsumerStatefulWidget {
@@ -29,38 +28,37 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
   @override
   void initState() {
     super.initState();
-    _initializeCall();
+    // Delay initialization to after the first build
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initializeCall();
+    });
   }
 
   Future<void> _initializeCall() async {
     try {
-      final notifier = ref.read(videoCallProvider.notifier);
+      final controller = ref.read(basicVideoCallControllerProvider);
       
       // Initialize services
-      await notifier.initialize(widget.serverUrl, widget.userId, widget.token);
+      await controller.initialize(widget.serverUrl, widget.userId, widget.token);
       
       // Join the call
-      await notifier.joinCall(widget.sessionId);
+      await controller.joinCall(widget.sessionId);
       
-      setState(() {
-        _isInitialized = true;
-      });
+      if (mounted) {
+        setState(() {
+          _isInitialized = true;
+        });
+      }
     } catch (e) {
-      _showErrorDialog('Failed to join call: $e');
+      if (mounted) {
+        _showErrorDialog('Failed to join call: $e');
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final videoCallState = ref.watch(videoCallProvider);
-
-    // Show error if any
-    if (videoCallState.errorMessage != null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _showErrorDialog(videoCallState.errorMessage!);
-        ref.read(videoCallProvider.notifier).clearError();
-      });
-    }
+    final videoCallState = ref.watch(basicVideoCallStateProvider);
 
     return Scaffold(
       backgroundColor: Colors.black,
@@ -69,12 +67,19 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
         child: SafeArea(
           child: Stack(
             children: [
-              // Video grid
+              // Video grid - simplified for basic provider
               if (_isInitialized && videoCallState.isInCall)
-                VideoCallGrid(
-                  participants: videoCallState.participants,
-                  remoteRenderers: videoCallState.remoteRenderers,
-                  localRenderer: videoCallState.localRenderer,
+                Container(
+                  child: const Center(
+                    child: Text(
+                      'Video Call Active',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
                 )
               else
                 _buildLoadingOrWaitingView(videoCallState),
@@ -91,9 +96,9 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
                   child: VideoCallControls(
                     isVideoEnabled: videoCallState.isVideoEnabled,
                     isAudioEnabled: videoCallState.isAudioEnabled,
-                    isScreenSharing: videoCallState.isScreenSharing,
-                    onToggleVideo: () => ref.read(videoCallProvider.notifier).toggleVideo(),
-                    onToggleAudio: () => ref.read(videoCallProvider.notifier).toggleAudio(),
+                    isScreenSharing: false, // Basic provider doesn't support screen sharing
+                    onToggleVideo: () => ref.read(basicVideoCallControllerProvider).toggleVideo(),
+                    onToggleAudio: () => ref.read(basicVideoCallControllerProvider).toggleAudio(),
                     onToggleScreenShare: _toggleScreenShare,
                     onEndCall: _endCall,
                     onSwitchCamera: _switchCamera,
@@ -106,7 +111,7 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
     );
   }
 
-  Widget _buildLoadingOrWaitingView(VideoCallState state) {
+  Widget _buildLoadingOrWaitingView(BasicVideoCallState state) {
     String message;
     if (state.isConnecting) {
       message = 'Connecting to call...';
@@ -132,10 +137,10 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
               fontWeight: FontWeight.w500,
             ),
           ),
-          if (state.currentSession != null) ...[
+          if (state.sessionId != null) ...[
             const SizedBox(height: 16),
             Text(
-              'Session ID: ${state.currentSession!.sessionId}',
+              'Session ID: ${state.sessionId}',
               style: TextStyle(
                 color: Colors.grey[400],
                 fontSize: 14,
@@ -147,7 +152,7 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
     );
   }
 
-  Widget _buildTopBar(VideoCallState state) {
+  Widget _buildTopBar(BasicVideoCallState state) {
     return Positioned(
       top: 0,
       left: 0,
@@ -180,7 +185,7 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    state.currentSession?.sessionId ?? 'Video Call',
+                    state.sessionId ?? 'Video Call',
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 16,
@@ -188,7 +193,7 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
                     ),
                   ),
                   Text(
-                    '${state.participants.length} participant${state.participants.length != 1 ? 's' : ''}',
+                    'Video Call Session',
                     style: TextStyle(
                       color: Colors.grey[300],
                       fontSize: 14,
@@ -221,12 +226,10 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
   }
 
   void _toggleScreenShare() {
-    final state = ref.read(videoCallProvider);
-    if (state.isScreenSharing) {
-      ref.read(videoCallProvider.notifier).stopScreenShare();
-    } else {
-      ref.read(videoCallProvider.notifier).startScreenShare();
-    }
+    // Screen sharing not implemented in basic provider
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Screen sharing not implemented')),
+    );
   }
 
   void _switchCamera() {
@@ -255,7 +258,7 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
           TextButton(
             onPressed: () async {
               Navigator.of(context).pop();
-              await ref.read(videoCallProvider.notifier).leaveCall();
+              await ref.read(basicVideoCallControllerProvider).leaveCall();
               if (mounted) {
                 Navigator.of(context).pop();
               }
@@ -269,6 +272,9 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
 
   void _showErrorDialog(String message) {
     if (!mounted) return;
+    
+    // Clear the error first to prevent repeated dialogs
+    Future.microtask(() => ref.read(basicVideoCallControllerProvider).clearError());
     
     showDialog(
       context: context,
@@ -291,7 +297,7 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
   @override
   void dispose() {
     // Clean up resources
-    ref.read(videoCallProvider.notifier).leaveCall();
+    ref.read(basicVideoCallControllerProvider).leaveCall();
     super.dispose();
   }
 }

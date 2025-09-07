@@ -16,8 +16,8 @@ final signalingServiceProvider = Provider<SignalingService>((ref) {
 });
 
 final videoCallProvider = StateNotifierProvider<VideoCallNotifier, VideoCallState>((ref) {
-  final webrtcService = ref.watch(webrtcServiceProvider);
-  final signalingService = ref.watch(signalingServiceProvider);
+  final webrtcService = ref.read(webrtcServiceProvider);
+  final signalingService = ref.read(signalingServiceProvider);
   return VideoCallNotifier(webrtcService, signalingService);
 });
 
@@ -88,35 +88,77 @@ class VideoCallNotifier extends StateNotifier<VideoCallState> {
   StreamSubscription? _errorSubscription;
 
   VideoCallNotifier(this._webrtcService, this._signalingService)
-      : super(const VideoCallState()) {
-    _initializeSubscriptions();
-  }
+      : super(const VideoCallState());
+
+  // Only setup subscriptions when explicitly initialized
+  bool _isInitialized = false;
 
   void _initializeSubscriptions() {
+    // Ensure subscriptions are not already set up
+    if (_callSessionSubscription != null || _isInitialized) return;
+    
+    _isInitialized = true;
     // Listen to signaling service events
     _callSessionSubscription = _signalingService.callSessionStream.listen(
-      (session) => _handleCallSession(session),
+      (session) {
+        try {
+          _handleCallSession(session);
+        } catch (e) {
+          // Handle error silently to prevent widget tree building issues
+          print('Error handling call session: $e');
+        }
+      },
     );
 
     _participantJoinedSubscription = _signalingService.participantJoinedStream.listen(
-      (participant) => _handleParticipantJoined(participant),
+      (participant) {
+        try {
+          _handleParticipantJoined(participant);
+        } catch (e) {
+          print('Error handling participant joined: $e');
+        }
+      },
     );
 
     _participantLeftSubscription = _signalingService.participantLeftStream.listen(
-      (userId) => _handleParticipantLeft(userId),
+      (userId) {
+        try {
+          _handleParticipantLeft(userId);
+        } catch (e) {
+          print('Error handling participant left: $e');
+        }
+      },
     );
 
     _errorSubscription = _signalingService.errorStream.listen(
-      (error) => _handleError(error),
+      (error) {
+        try {
+          _handleError(error);
+        } catch (e) {
+          print('Error handling signaling error: $e');
+        }
+      },
     );
 
     // Listen to WebRTC service events
     _remoteRenderersSubscription = _webrtcService.remoteRenderersStream.listen(
-      (renderers) => _updateRemoteRenderers(renderers),
+      (renderers) {
+        try {
+          _updateRemoteRenderers(renderers);
+        } catch (e) {
+          print('Error updating remote renderers: $e');
+        }
+      },
     );
 
     _localRendererSubscription = _webrtcService.localRendererStream.listen(
-      (renderer) => _updateLocalRenderer(renderer),
+      (renderer) {
+        try {
+          _updateLocalRenderer(renderer);
+        } catch (e) {
+          print('Error updating local renderer: $e');
+        }
+      },
     );
   }
 
@@ -130,6 +172,9 @@ class VideoCallNotifier extends StateNotifier<VideoCallState> {
 
       // Initialize signaling service
       await _signalingService.initialize(serverUrl, userId, token);
+
+      // Set up subscriptions after services are initialized
+      _initializeSubscriptions();
 
       state = state.copyWith(isConnecting: false);
     } catch (e) {
