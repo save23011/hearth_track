@@ -1,7 +1,7 @@
 class AppConfig {
   // API Configuration
-  static const String baseUrl = 'http://localhost:3000/api';
-  static const String socketUrl = 'http://localhost:3000';
+  static const String baseUrl = 'https://sol-3a0fa16a1680.herokuapp.com/api';
+  static const String socketUrl = 'https://sol-3a0fa16a1680.herokuapp.com';
   
   // For production, use your deployed backend URL
   // static const String baseUrl = 'https://your-domain.com/api';

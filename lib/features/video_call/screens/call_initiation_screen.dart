@@ -14,7 +14,7 @@ class CallInitiationScreen extends ConsumerStatefulWidget {
 class _CallInitiationScreenState extends ConsumerState<CallInitiationScreen> {
   final _sessionIdController = TextEditingController();
   final _serverUrlController = TextEditingController(
-    text: 'http://localhost:3000', // Default backend URL
+    text: 'https://sol-3a0fa16a1680.herokuapp.com', // Default backend URL
   );
   bool _isJoining = false;
 
