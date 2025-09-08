@@ -43,7 +43,7 @@ const callSessionSchema = new mongoose.Schema({
   sessionType: {
     type: String,
     enum: ['one-to-one', 'group', 'therapy'],
-    required: true
+    default: 'group'
   },
   initiatorId: {
     type: mongoose.Schema.Types.ObjectId,
@@ -67,6 +67,18 @@ const callSessionSchema = new mongoose.Schema({
     default: 0
   },
   callSettings: {
+    maxParticipants: {
+      type: Number,
+      default: 10
+    },
+    allowScreenShare: {
+      type: Boolean,
+      default: true
+    },
+    allowRecording: {
+      type: Boolean,
+      default: false
+    },
     isVideoEnabled: {
       type: Boolean,
       default: true
@@ -78,10 +90,6 @@ const callSessionSchema = new mongoose.Schema({
     isRecordingEnabled: {
       type: Boolean,
       default: false
-    },
-    allowScreenShare: {
-      type: Boolean,
-      default: true
     }
   },
   therapySessionId: {

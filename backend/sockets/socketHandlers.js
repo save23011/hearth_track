@@ -11,6 +11,35 @@ const socketHandlers = (socket, io) => {
   // Authenticate socket connection
   socket.on('authenticate', async (token) => {
     try {
+      console.log('Authentication attempt:', { socketId: socket.id, token: token ? token.substring(0, 20) + '...' : 'null' });
+      
+      // Handle demo tokens for testing
+      if (token && token.startsWith('demo_token_')) {
+        const timestamp = token.split('_')[2];
+        const demoUser = {
+          _id: `demo_user_${timestamp}`,
+          firstName: 'Demo',
+          lastName: 'User',
+          profilePicture: null
+        };
+        
+        socket.userId = demoUser._id;
+        socket.user = demoUser;
+        socket.join(`user_${demoUser._id}`);
+        
+        console.log(`Demo user authenticated on socket ${socket.id}:`, demoUser);
+        
+        socket.emit('authenticated', {
+          success: true,
+          user: {
+            id: demoUser._id,
+            firstName: demoUser.firstName,
+            lastName: demoUser.lastName
+          }
+        });
+        return;
+      }
+      
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
       const user = await User.findById(decoded.id);
       

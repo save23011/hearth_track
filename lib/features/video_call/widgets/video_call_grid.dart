@@ -186,9 +186,56 @@ class VideoCallGrid extends StatelessWidget {
   }
 
   Widget _buildParticipantView(CallParticipant participant) {
-    final renderer = participant.isLocal 
-        ? localRenderer 
-        : remoteRenderers[participant.userId];
+    RTCVideoRenderer? renderer;
+    
+    if (participant.isLocal) {
+      renderer = localRenderer;
+    } else {
+      // Try multiple strategies to find the renderer
+      // Strategy 1: Try peerId (most common key)
+      renderer = remoteRenderers[participant.peerId];
+      
+      // Strategy 2: Try userId if peerId doesn't work
+      if (renderer == null) {
+        renderer = remoteRenderers[participant.userId];
+      }
+      
+      // Strategy 3: Try socketId if available
+      if (renderer == null && participant.socketId.isNotEmpty) {
+        renderer = remoteRenderers[participant.socketId];
+      }
+      
+      // Strategy 4: Search by partial match (for any key containing the IDs)
+      if (renderer == null) {
+        for (final key in remoteRenderers.keys) {
+          if (key.contains(participant.peerId) || 
+              key.contains(participant.userId) ||
+              (participant.socketId.isNotEmpty && key.contains(participant.socketId))) {
+            renderer = remoteRenderers[key];
+            print('  - Found renderer by partial match: $key');
+            break;
+          }
+        }
+      }
+    }
+
+    // Enhanced debug information
+    print('Building participant view for: ${participant.fullName}');
+    print('  - User ID: ${participant.userId}');
+    print('  - Peer ID: ${participant.peerId}');
+    print('  - Socket ID: ${participant.socketId}');
+    print('  - Is Local: ${participant.isLocal}');
+    print('  - Has Video: ${participant.hasVideo}');
+    print('  - Renderer found: ${renderer != null}');
+    if (renderer != null) {
+      print('  - Renderer has stream: ${renderer.srcObject != null}');
+      if (renderer.srcObject != null) {
+        print('  - Stream video tracks: ${renderer.srcObject!.getVideoTracks().length}');
+        print('  - Stream audio tracks: ${renderer.srcObject!.getAudioTracks().length}');
+      }
+    }
+    print('  - Available remote renderer keys: ${remoteRenderers.keys.toList()}');
+    print('  - Searching for keys containing: [${participant.peerId}, ${participant.userId}, ${participant.socketId}]');
 
     return ParticipantVideoView(
       participant: participant,

@@ -394,4 +394,57 @@ router.get('/history', async (req, res) => {
   }
 });
 
+// @route   POST /api/video-call/demo-session
+// @desc    Create a demo call session for testing
+// @access  Private
+router.post('/demo-session', async (req, res) => {
+  try {
+    const { sessionId } = req.body;
+    
+    // Use provided sessionId or generate one
+    const finalSessionId = sessionId || `call_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    
+    // Check if session already exists
+    let callSession = await CallSession.findActiveSession(finalSessionId);
+    
+    if (!callSession) {
+      // Create new call session
+      callSession = await CallSession.create({
+        sessionId: finalSessionId,
+        sessionType: 'group',
+        initiatorId: req.user._id,
+        maxParticipants: 10,
+        status: 'waiting',
+        startTime: new Date(),
+        callSettings: {
+          maxParticipants: 10,
+          allowScreenShare: true,
+          allowRecording: false,
+          isVideoEnabled: true,
+          isAudioEnabled: true,
+          isRecordingEnabled: false
+        }
+      });
+    }
+
+    res.status(201).json({
+      success: true,
+      message: 'Demo call session created successfully',
+      data: {
+        sessionId: callSession.sessionId,
+        status: callSession.status,
+        callSettings: callSession.callSettings,
+        iceServers: ICE_SERVERS
+      }
+    });
+  } catch (error) {
+    console.error('Error creating demo call session:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to create demo call session',
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+    });
+  }
+});
+
 module.exports = router;

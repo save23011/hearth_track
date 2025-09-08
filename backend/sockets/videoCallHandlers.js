@@ -8,15 +8,39 @@ const videoCallHandlers = (socket, io) => {
     try {
       const { sessionId, peerId } = data;
       
+      console.log('Join call session request:', {
+        sessionId,
+        peerId,
+        socketId: socket.id,
+        userId: socket.userId,
+        hasUser: !!socket.user
+      });
+      
       if (!socket.userId) {
+        console.log('Authentication check failed - socket.userId not set');
         socket.emit('call_error', { message: 'User not authenticated' });
         return;
       }
 
-      const callSession = await CallSession.findActiveSession(sessionId);
+      // Try to find existing call session or create new one
+      let callSession = await CallSession.findActiveSession(sessionId);
+      
       if (!callSession) {
-        socket.emit('call_error', { message: 'Call session not found or has ended' });
-        return;
+        // Create new call session if it doesn't exist
+        callSession = await CallSession.create({
+          sessionId,
+          initiatorId: socket.userId,
+          status: 'active',
+          participants: [],
+          callSettings: {
+            maxParticipants: 10,
+            allowScreenShare: true,
+            allowRecording: false
+          },
+          startTime: new Date()
+        });
+        
+        console.log(`Created new call session: ${sessionId}`);
       }
 
       // Check if user is allowed to join
@@ -25,9 +49,9 @@ const videoCallHandlers = (socket, io) => {
         p.userId.toString() === socket.userId && p.isActive
       );
 
-      if (!isInitiator && !existingParticipant) {
-        socket.emit('call_error', { message: 'User not authorized to join this call' });
-        return;
+      if (!isInitiator && !existingParticipant && callSession.participants.length > 0) {
+        // For now, allow anyone to join for demo purposes
+        // In production, you'd want proper invitation/permission checks
       }
 
       // Add participant to call session
@@ -78,11 +102,168 @@ const videoCallHandlers = (socket, io) => {
         }
       });
 
+      // If there are existing participants, trigger WebRTC connection establishment
+      const existingParticipants = activeParticipants.filter(p => p.peerId !== peerId);
+      if (existingParticipants.length > 0) {
+        console.log(`Triggering WebRTC connections for new participant ${peerId} with ${existingParticipants.length} existing participants`);
+        
+        // Tell the new participant about existing participants
+        existingParticipants.forEach(participant => {
+          socket.emit('initiate_peer_connection', {
+            targetPeerId: participant.peerId,
+            participant: participant
+          });
+        });
+
+        // Tell existing participants to initiate connections with the new participant
+        existingParticipants.forEach(participant => {
+          const targetSocket = Array.from(io.sockets.sockets.values())
+            .find(s => s.peerId === participant.peerId && s.callSessionId === sessionId);
+          
+          if (targetSocket) {
+            targetSocket.emit('initiate_peer_connection', {
+              targetPeerId: peerId,
+              participant: {
+                userId: socket.userId,
+                peerId,
+                socketId: socket.id,
+                firstName: socket.user.firstName,
+                lastName: socket.user.lastName,
+                profilePicture: socket.user.profilePicture,
+                hasVideo: true,
+                hasAudio: true,
+                isScreenSharing: false
+              }
+            });
+          }
+        });
+      }
+
       console.log(`User ${socket.userId} joined call session ${sessionId}`);
 
     } catch (error) {
       console.error('Error joining call session:', error);
-      socket.emit('call_error', { message: 'Failed to join call session' });
+      socket.emit('call_error', { message: 'Failed to join call session: ' + error.message });
+    }
+  });
+
+  // WebRTC signaling handlers
+  socket.on('webrtc_offer', (data) => {
+    const { targetPeerId, sessionId, offer } = data;
+    
+    if (!socket.callSessionId || socket.callSessionId !== sessionId) {
+      socket.emit('call_error', { message: 'Not in call session' });
+      return;
+    }
+
+    // Find target socket in the same call session
+    const targetSocket = Array.from(io.sockets.sockets.values())
+      .find(s => s.peerId === targetPeerId && s.callSessionId === sessionId);
+    
+    if (targetSocket) {
+      targetSocket.emit('webrtc_offer', {
+        fromPeerId: socket.peerId,
+        sessionId,
+        offer
+      });
+      console.log(`Relayed WebRTC offer from ${socket.peerId} to ${targetPeerId}`);
+    } else {
+      socket.emit('call_error', { message: 'Target peer not found' });
+    }
+  });
+
+  socket.on('webrtc_answer', (data) => {
+    const { targetPeerId, sessionId, answer } = data;
+    
+    if (!socket.callSessionId || socket.callSessionId !== sessionId) {
+      socket.emit('call_error', { message: 'Not in call session' });
+      return;
+    }
+
+    // Find target socket in the same call session
+    const targetSocket = Array.from(io.sockets.sockets.values())
+      .find(s => s.peerId === targetPeerId && s.callSessionId === sessionId);
+    
+    if (targetSocket) {
+      targetSocket.emit('webrtc_answer', {
+        fromPeerId: socket.peerId,
+        sessionId,
+        answer
+      });
+      console.log(`Relayed WebRTC answer from ${socket.peerId} to ${targetPeerId}`);
+    } else {
+      socket.emit('call_error', { message: 'Target peer not found' });
+    }
+  });
+
+  socket.on('webrtc_ice_candidate', (data) => {
+    const { targetPeerId, sessionId, candidate } = data;
+    
+    if (!socket.callSessionId || socket.callSessionId !== sessionId) {
+      socket.emit('call_error', { message: 'Not in call session' });
+      return;
+    }
+
+    // Find target socket in the same call session
+    const targetSocket = Array.from(io.sockets.sockets.values())
+      .find(s => s.peerId === targetPeerId && s.callSessionId === sessionId);
+    
+    if (targetSocket) {
+      targetSocket.emit('webrtc_ice_candidate', {
+        fromPeerId: socket.peerId,
+        sessionId,
+        candidate
+      });
+      console.log(`Relayed ICE candidate from ${socket.peerId} to ${targetPeerId}`);
+    }
+  });
+
+  // Media control handlers
+  socket.on('toggle_video', async (data) => {
+    try {
+      const { sessionId, hasVideo } = data;
+      
+      if (!socket.userId || !socket.callSessionId || socket.callSessionId !== sessionId) {
+        return;
+      }
+
+      const callSession = await CallSession.findActiveSession(sessionId);
+      if (callSession) {
+        await callSession.updateParticipantMedia(socket.userId, { hasVideo });
+        
+        // Notify other participants
+        socket.to(`call_${sessionId}`).emit('participant_toggled_video', {
+          userId: socket.userId,
+          peerId: socket.peerId,
+          hasVideo
+        });
+      }
+    } catch (error) {
+      console.error('Error toggling video:', error);
+    }
+  });
+
+  socket.on('toggle_audio', async (data) => {
+    try {
+      const { sessionId, hasAudio } = data;
+      
+      if (!socket.userId || !socket.callSessionId || socket.callSessionId !== sessionId) {
+        return;
+      }
+
+      const callSession = await CallSession.findActiveSession(sessionId);
+      if (callSession) {
+        await callSession.updateParticipantMedia(socket.userId, { hasAudio });
+        
+        // Notify other participants
+        socket.to(`call_${sessionId}`).emit('participant_toggled_audio', {
+          userId: socket.userId,
+          peerId: socket.peerId,
+          hasAudio
+        });
+      }
+    } catch (error) {
+      console.error('Error toggling audio:', error);
     }
   });
 

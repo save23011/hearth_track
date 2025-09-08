@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import '../models/call_session.dart';
@@ -79,6 +80,10 @@ class VideoCallState {
 class VideoCallNotifier extends StateNotifier<VideoCallState> {
   final WebRTCService _webrtcService;
   final SignalingService _signalingService;
+  
+  // Store current user info for participant identification
+  String? _currentUserId;
+  String? _currentPeerId;
   
   StreamSubscription? _callSessionSubscription;
   StreamSubscription? _participantJoinedSubscription;
@@ -167,6 +172,10 @@ class VideoCallNotifier extends StateNotifier<VideoCallState> {
     try {
       state = state.copyWith(isConnecting: true, clearError: true);
 
+      // Store current user ID for participant identification
+      _currentUserId = userId;
+      debugPrint('Initializing video call for user: $userId');
+
       // Initialize WebRTC service
       await _webrtcService.initialize();
 
@@ -194,11 +203,22 @@ class VideoCallNotifier extends StateNotifier<VideoCallState> {
     try {
       state = state.copyWith(isConnecting: true, clearError: true);
 
-      // Start local media stream
-      await _webrtcService.startLocalStream(video: video, audio: audio);
+      // Start local media stream - always try to get both video and audio initially
+      // Individual tracks can be disabled later via toggleVideo/toggleAudio
+      await _webrtcService.startLocalStream(video: true, audio: true);
+      
+      // Now disable video/audio tracks if requested
+      if (!video) {
+        await _webrtcService.toggleVideo();
+      }
+      if (!audio) {
+        await _webrtcService.toggleAudio();
+      }
 
       // Generate peer ID (you might want to use a proper UUID library)
       final peerId = _generatePeerId();
+      _currentPeerId = peerId;
+      debugPrint('Generated peer ID: $peerId for user: $_currentUserId');
 
       // Join call session via signaling
       await _signalingService.joinCallSession(sessionId, peerId);
@@ -209,6 +229,8 @@ class VideoCallNotifier extends StateNotifier<VideoCallState> {
         isVideoEnabled: video,
         isAudioEnabled: audio,
       );
+      
+      debugPrint('Successfully joined call session. Video: $video, Audio: $audio');
     } catch (e) {
       state = state.copyWith(
         isConnecting: false,
@@ -298,23 +320,69 @@ class VideoCallNotifier extends StateNotifier<VideoCallState> {
   }
 
   // Handle call session updates
-  void _handleCallSession(CallSession session) {
+  void _handleCallSession(CallSession session) async {
+    debugPrint('=== HANDLING CALL SESSION ===');
+    debugPrint('Session ID: ${session.sessionId}');
+    debugPrint('Session participants count: ${session.participants.length}');
+    debugPrint('Current user ID: $_currentUserId');
+    debugPrint('Current peer ID: $_currentPeerId');
+    
     final participants = session.participants.map((p) {
-      // Mark local participant
-      if (p.userId == session.initiatorId) {
-        return p.copyWith(isLocal: true);
-      }
-      return p;
+      // Mark local participant by matching user ID
+      final isLocal = p.userId == _currentUserId;
+      debugPrint('Participant: ${p.fullName} (userId: ${p.userId}, peerId: ${p.peerId}) - isLocal: $isLocal');
+      return p.copyWith(isLocal: isLocal);
     }).toList();
+
+    debugPrint('Processed participants:');
+    for (final p in participants) {
+      debugPrint('  - ${p.fullName}: local=${p.isLocal}, userId=${p.userId}, peerId=${p.peerId}');
+    }
+
+    // If we're joining and there are existing participants,
+    // establish connections with them
+    if (state.isInCall) {
+      final remoteParticipants = participants.where((p) => !p.isLocal && p.peerId.isNotEmpty).toList();
+      debugPrint('Remote participants to connect: ${remoteParticipants.length}');
+      
+      for (final participant in remoteParticipants) {
+        try {
+          // Check if we already have a connection
+          if (!_webrtcService.hasPeerConnection(participant.peerId)) {
+            debugPrint('Establishing connection with existing participant: ${participant.peerId}');
+            await _initiateConnectionWithPeer(participant.peerId);
+          } else {
+            debugPrint('Connection already exists with participant: ${participant.peerId}');
+          }
+        } catch (e) {
+          debugPrint('Error establishing connection with existing participant ${participant.peerId}: $e');
+        }
+      }
+    }
 
     state = state.copyWith(
       currentSession: session,
       participants: participants,
     );
+    
+    debugPrint('State updated with ${participants.length} participants');
+    debugPrint('=== CALL SESSION HANDLING COMPLETE ===');
   }
 
   // Handle participant joined
-  void _handleParticipantJoined(CallParticipant participant) {
+  void _handleParticipantJoined(CallParticipant participant) async {
+    debugPrint('=== HANDLING PARTICIPANT JOINED ===');
+    debugPrint('New participant: ${participant.fullName}');
+    debugPrint('  - User ID: ${participant.userId}');
+    debugPrint('  - Peer ID: ${participant.peerId}');
+    debugPrint('  - Socket ID: ${participant.socketId}');
+    debugPrint('Current user ID: $_currentUserId');
+    
+    // Mark as local or remote based on user ID
+    final isLocal = participant.userId == _currentUserId;
+    final updatedParticipant = participant.copyWith(isLocal: isLocal);
+    debugPrint('  - Is Local: $isLocal');
+    
     final updatedParticipants = List<CallParticipant>.from(state.participants);
     
     // Check if participant already exists
@@ -323,12 +391,62 @@ class VideoCallNotifier extends StateNotifier<VideoCallState> {
     );
 
     if (existingIndex != -1) {
-      updatedParticipants[existingIndex] = participant;
+      updatedParticipants[existingIndex] = updatedParticipant;
+      debugPrint('Updated existing participant: ${participant.fullName}');
     } else {
-      updatedParticipants.add(participant);
+      updatedParticipants.add(updatedParticipant);
+      debugPrint('Added new participant: ${participant.fullName}');
+      
+      // If this is a new remote participant and we're already in the call,
+      // initiate a peer connection
+      if (state.isInCall && !isLocal && participant.peerId.isNotEmpty) {
+        try {
+          debugPrint('Initiating connection with new remote participant: ${participant.fullName} (${participant.peerId})');
+          await _initiateConnectionWithPeer(participant.peerId);
+        } catch (e) {
+          debugPrint('Error initiating connection with peer ${participant.peerId}: $e');
+        }
+      }
     }
 
     state = state.copyWith(participants: updatedParticipants);
+    debugPrint('Total participants after update: ${state.participants.length}');
+    debugPrint('Remote participants: ${updatedParticipants.where((p) => !p.isLocal).length}');
+    debugPrint('=== PARTICIPANT JOINED HANDLING COMPLETE ===');
+  }
+
+  // Initiate connection with a new peer
+  Future<void> _initiateConnectionWithPeer(String peerId) async {
+    try {
+      debugPrint('Initiating connection with peer: $peerId');
+      
+      // Check if we already have a connection
+      if (_webrtcService.remoteRenderers.containsKey(peerId)) {
+        debugPrint('Connection already exists with peer: $peerId');
+        return;
+      }
+      
+      // Create peer connection
+      await _webrtcService.createPeerConnectionForParticipant(peerId);
+      
+      // Small delay to ensure peer connection is ready
+      await Future.delayed(const Duration(milliseconds: 100));
+      
+      // Create and send offer
+      debugPrint('Creating offer for peer: $peerId');
+      final offer = await _webrtcService.createOffer(peerId);
+      
+      debugPrint('Sending offer to peer: $peerId');
+      await _signalingService.sendOffer(peerId, offer);
+      
+      debugPrint('Successfully initiated connection with peer: $peerId');
+    } catch (e) {
+      debugPrint('Error initiating connection with peer $peerId: $e');
+      // Don't rethrow to prevent breaking the overall call flow
+      state = state.copyWith(
+        errorMessage: 'Failed to connect with participant: $e'
+      );
+    }
   }
 
   // Handle participant left
@@ -347,7 +465,60 @@ class VideoCallNotifier extends StateNotifier<VideoCallState> {
 
   // Update remote renderers
   void _updateRemoteRenderers(Map<String, RTCVideoRenderer> renderers) {
-    state = state.copyWith(remoteRenderers: renderers);
+    debugPrint('Updating remote renderers in provider:');
+    debugPrint('  - Previous count: ${state.remoteRenderers.length}');
+    debugPrint('  - New count: ${renderers.length}');
+    debugPrint('  - New renderer IDs: ${renderers.keys.toList()}');
+    
+    renderers.forEach((participantId, renderer) {
+      debugPrint('  - Renderer [$participantId]: hasStream=${renderer.srcObject != null}');
+      if (renderer.srcObject != null) {
+        debugPrint('    - Video tracks: ${renderer.srcObject!.getVideoTracks().length}');
+        debugPrint('    - Audio tracks: ${renderer.srcObject!.getAudioTracks().length}');
+      }
+    });
+    
+    // Create a new map that maps both peerId and userId to the same renderer
+    // This ensures compatibility regardless of which key is used for lookup
+    final mappedRenderers = <String, RTCVideoRenderer>{};
+    
+    for (final entry in renderers.entries) {
+      final rendererId = entry.key;
+      final renderer = entry.value;
+      
+      // Add the original mapping
+      mappedRenderers[rendererId] = renderer;
+      
+      // Try to find a participant with this peerId and also map by userId
+      final participant = state.participants.firstWhere(
+        (p) => p.peerId == rendererId,
+        orElse: () => state.participants.firstWhere(
+          (p) => p.userId == rendererId,
+          orElse: () => const CallParticipant(
+            userId: '',
+            peerId: '',
+            socketId: '',
+            firstName: '',
+            lastName: '',
+          ),
+        ),
+      );
+      
+      if (participant.userId.isNotEmpty) {
+        // Map by both peerId and userId for convenience
+        if (participant.peerId.isNotEmpty && participant.peerId != rendererId) {
+          mappedRenderers[participant.peerId] = renderer;
+        }
+        if (participant.userId != rendererId) {
+          mappedRenderers[participant.userId] = renderer;
+        }
+        debugPrint('  - Mapped renderer for participant ${participant.fullName}: peerId=${participant.peerId}, userId=${participant.userId}');
+      }
+    }
+    
+    state = state.copyWith(remoteRenderers: mappedRenderers);
+    debugPrint('Remote renderers updated in state with ${mappedRenderers.length} mappings');
+    debugPrint('Final renderer keys: ${mappedRenderers.keys.toList()}');
   }
 
   // Update local renderer
@@ -358,6 +529,128 @@ class VideoCallNotifier extends StateNotifier<VideoCallState> {
   // Clear error
   void clearError() {
     state = state.copyWith(clearError: true);
+  }
+
+  // Refresh connections - force reconnection with all participants
+  Future<void> refreshConnections() async {
+    try {
+      debugPrint('=== REFRESHING CONNECTIONS ===');
+      
+      // First, sync participants with available renderers
+      await _syncParticipantsWithRenderers();
+      
+      // Get current remote participants
+      final remoteParticipants = state.participants.where((p) => !p.isLocal && p.peerId.isNotEmpty).toList();
+      
+      debugPrint('Remote participants to refresh: ${remoteParticipants.length}');
+      for (final participant in remoteParticipants) {
+        try {
+          debugPrint('Refreshing connection with participant: ${participant.fullName} (${participant.peerId})');
+          
+          // Re-initiate connection
+          await _initiateConnectionWithPeer(participant.peerId);
+        } catch (e) {
+          debugPrint('Error refreshing connection with ${participant.peerId}: $e');
+        }
+      }
+      
+      debugPrint('Connection refresh completed');
+    } catch (e) {
+      debugPrint('Error during connection refresh: $e');
+      state = state.copyWith(errorMessage: 'Failed to refresh connections: $e');
+    }
+  }
+
+  // Sync participants with available renderers - create missing participants
+  Future<void> _syncParticipantsWithRenderers() async {
+    debugPrint('=== SYNCING PARTICIPANTS WITH RENDERERS ===');
+    
+    final availableRenderers = state.remoteRenderers;
+    final currentParticipants = state.participants;
+    final updatedParticipants = List<CallParticipant>.from(currentParticipants);
+    
+    debugPrint('Available renderer keys: ${availableRenderers.keys.toList()}');
+    debugPrint('Current participants: ${currentParticipants.map((p) => '${p.fullName} (${p.peerId})').toList()}');
+    
+    // For each renderer, ensure we have a corresponding participant
+    for (final rendererKey in availableRenderers.keys) {
+      // Check if we already have a participant for this renderer
+      final existingParticipant = currentParticipants.firstWhere(
+        (p) => p.peerId == rendererKey || p.userId == rendererKey || p.socketId == rendererKey,
+        orElse: () => CallParticipant(
+          userId: '',
+          firstName: '',
+          lastName: '',
+          profilePicture: null,
+          hasVideo: true,
+          hasAudio: true,
+          isScreenSharing: false,
+          peerId: '',
+          socketId: '',
+          isLocal: false,
+        ),
+      );
+      
+      if (existingParticipant.userId.isEmpty) {
+        // Create a dummy participant for this renderer
+        final dummyParticipant = CallParticipant(
+          userId: 'remote_$rendererKey',
+          firstName: 'Remote',
+          lastName: 'Participant',
+          profilePicture: null,
+          hasVideo: true,
+          hasAudio: true,
+          isScreenSharing: false,
+          peerId: rendererKey,
+          socketId: '',
+          isLocal: false,
+        );
+        
+        updatedParticipants.add(dummyParticipant);
+        debugPrint('Created dummy participant for renderer: $rendererKey');
+      }
+    }
+    
+    if (updatedParticipants.length != currentParticipants.length) {
+      state = state.copyWith(participants: updatedParticipants);
+      debugPrint('Updated participants list with ${updatedParticipants.length} participants');
+    }
+    
+    debugPrint('=== SYNC COMPLETE ===');
+  }
+
+  // Get renderer for participant (tries multiple key strategies)
+  RTCVideoRenderer? getRendererForParticipant(CallParticipant participant) {
+    // Try peerId first (most likely key)
+    if (participant.peerId.isNotEmpty) {
+      final renderer = state.remoteRenderers[participant.peerId];
+      if (renderer != null) return renderer;
+    }
+    
+    // Try userId as fallback
+    final renderer = state.remoteRenderers[participant.userId];
+    if (renderer != null) return renderer;
+    
+    // Try socketId as last resort
+    if (participant.socketId.isNotEmpty) {
+      return state.remoteRenderers[participant.socketId];
+    }
+    
+    return null;
+  }
+
+  // Debug method to check renderer mappings
+  Map<String, String> getRendererMappingDebug() {
+    final debug = <String, String>{};
+    
+    for (final participant in state.participants) {
+      final renderer = getRendererForParticipant(participant);
+      debug[participant.fullName] = renderer != null 
+          ? 'Has renderer' 
+          : 'No renderer (peerId: ${participant.peerId}, userId: ${participant.userId})';
+    }
+    
+    return debug;
   }
 
   // Generate peer ID (simple implementation)

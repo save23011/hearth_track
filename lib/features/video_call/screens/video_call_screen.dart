@@ -1,8 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../providers/basic_video_call_provider.dart';
+import 'package:flutter_webrtc/flutter_webrtc.dart';
+import '../providers/video_call_provider.dart';
 import '../widgets/video_call_controls.dart';
+import '../widgets/camera_debug_widget.dart';
+import '../widgets/stream_debug_widget.dart';
+import 'remote_participants_screen.dart';
+import 'video_call_debug_screen.dart';
 
 class VideoCallScreen extends ConsumerStatefulWidget {
   final String sessionId;
@@ -28,7 +34,6 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
   @override
   void initState() {
     super.initState();
-    // Delay initialization to after the first build
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initializeCall();
     });
@@ -36,20 +41,29 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
 
   Future<void> _initializeCall() async {
     try {
-      final controller = ref.read(basicVideoCallControllerProvider);
+      final notifier = ref.read(videoCallProvider.notifier);
+      
+      debugPrint('Starting video call initialization...');
+      debugPrint('Server URL: ${widget.serverUrl}');
+      debugPrint('Session ID: ${widget.sessionId}');
+      debugPrint('User ID: ${widget.userId}');
       
       // Initialize services
-      await controller.initialize(widget.serverUrl, widget.userId, widget.token);
+      debugPrint('Initializing video call services...');
+      await notifier.initialize(widget.serverUrl, widget.userId, widget.token);
       
       // Join the call
-      await controller.joinCall(widget.sessionId);
+      debugPrint('Joining call session...');
+      await notifier.joinCall(widget.sessionId);
       
       if (mounted) {
         setState(() {
           _isInitialized = true;
         });
+        debugPrint('Video call initialization completed successfully');
       }
     } catch (e) {
+      debugPrint('Video call initialization failed: $e');
       if (mounted) {
         _showErrorDialog('Failed to join call: $e');
       }
@@ -58,7 +72,7 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final videoCallState = ref.watch(basicVideoCallStateProvider);
+    final videoCallState = ref.watch(videoCallProvider);
 
     return Scaffold(
       backgroundColor: Colors.black,
@@ -67,20 +81,9 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
         child: SafeArea(
           child: Stack(
             children: [
-              // Video grid - simplified for basic provider
+              // Video display area
               if (_isInitialized && videoCallState.isInCall)
-                Container(
-                  child: const Center(
-                    child: Text(
-                      'Video Call Active',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                )
+                _buildVideoArea(videoCallState)
               else
                 _buildLoadingOrWaitingView(videoCallState),
 
@@ -96,9 +99,9 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
                   child: VideoCallControls(
                     isVideoEnabled: videoCallState.isVideoEnabled,
                     isAudioEnabled: videoCallState.isAudioEnabled,
-                    isScreenSharing: false, // Basic provider doesn't support screen sharing
-                    onToggleVideo: () => ref.read(basicVideoCallControllerProvider).toggleVideo(),
-                    onToggleAudio: () => ref.read(basicVideoCallControllerProvider).toggleAudio(),
+                    isScreenSharing: videoCallState.isScreenSharing,
+                    onToggleVideo: () => ref.read(videoCallProvider.notifier).toggleVideo(),
+                    onToggleAudio: () => ref.read(videoCallProvider.notifier).toggleAudio(),
                     onToggleScreenShare: _toggleScreenShare,
                     onEndCall: _endCall,
                     onSwitchCamera: _switchCamera,
@@ -111,132 +114,374 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
     );
   }
 
-  Widget _buildLoadingOrWaitingView(BasicVideoCallState state) {
-    String message;
-    if (state.isConnecting) {
-      message = 'Connecting to call...';
-    } else if (!_isInitialized) {
-      message = 'Initializing...';
-    } else {
-      message = 'Waiting for participants...';
-    }
-
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const CircularProgressIndicator(
-            valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
+  Widget _buildVideoArea(VideoCallState state) {
+    final hasRemoteStreams = state.remoteRenderers.isNotEmpty;
+    
+    return Stack(
+      children: [
+        // Main video area - always show local video in background
+        Positioned.fill(
+          child: Container(
+            color: Colors.grey[900],
+            child: _buildLocalVideoMain(state),
           ),
-          const SizedBox(height: 24),
-          Text(
-            message,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 18,
-              fontWeight: FontWeight.w500,
-            ),
+        ),
+        
+        // Remote participant videos - prominently displayed
+        if (hasRemoteStreams)
+          Positioned.fill(
+            child: _buildRemoteVideosGrid(state.remoteRenderers),
           ),
-          if (state.sessionId != null) ...[
-            const SizedBox(height: 16),
-            Text(
-              'Session ID: ${state.sessionId}',
-              style: TextStyle(
-                color: Colors.grey[400],
-                fontSize: 14,
+        
+        // Local video as picture-in-picture when there are remote streams
+        if (hasRemoteStreams && state.localRenderer != null)
+          Positioned(
+            top: 80,
+            right: 20,
+            child: Container(
+              width: 140,
+              height: 180,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.white, width: 2),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.3),
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: RTCVideoView(
+                  state.localRenderer!,
+                  objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
+                  mirror: true, // Mirror local video like a selfie camera
+                ),
               ),
             ),
+          ),
+          
+        // Participant count indicator
+        Positioned(
+          top: 20,
+          left: 20,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.black54,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Text(
+              '${state.participants.length + 1} participants',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ),
+        
+        // Debug info - improved
+        if (kDebugMode)
+          Positioned(
+            bottom: 120,
+            left: 16,
+            child: StreamDebugWidget(
+              remoteRenderers: state.remoteRenderers,
+              localRenderer: state.localRenderer,
+              participants: state.participants,
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildRemoteVideosGrid(Map<String, RTCVideoRenderer> remoteRenderers) {
+    if (remoteRenderers.isEmpty) return const SizedBox.shrink();
+    
+    // For now, show the first remote video prominently
+    // Later we can implement a grid for multiple participants
+    final firstRemoteRenderer = remoteRenderers.values.first;
+    final participantId = remoteRenderers.keys.first;
+    
+    print('Building remote video for participant: $participantId');
+    print('Renderer has stream: ${firstRemoteRenderer.srcObject != null}');
+    if (firstRemoteRenderer.srcObject != null) {
+      print('Stream video tracks: ${firstRemoteRenderer.srcObject!.getVideoTracks().length}');
+      print('Stream audio tracks: ${firstRemoteRenderer.srcObject!.getAudioTracks().length}');
+    }
+    
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.black,
+        border: Border.all(color: Colors.blue, width: 3),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      margin: const EdgeInsets.all(20),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(9),
+        child: Column(
+          children: [
+            // Participant label
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+              decoration: BoxDecoration(
+                color: Colors.blue.withOpacity(0.8),
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(9),
+                  topRight: Radius.circular(9),
+                ),
+              ),
+              child: Text(
+                'Remote Participant ($participantId)',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+            // Video area
+            Expanded(
+              child: firstRemoteRenderer.srcObject != null 
+                ? RTCVideoView(
+                    firstRemoteRenderer,
+                    objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
+                    mirror: false, // Don't mirror remote video
+                  )
+                : Container(
+                    color: Colors.grey[800],
+                    child: const Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.videocam_off,
+                            size: 48,
+                            color: Colors.white54,
+                          ),
+                          SizedBox(height: 8),
+                          Text(
+                            'No Remote Video',
+                            style: TextStyle(
+                              color: Colors.white54,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+            ),
           ],
-        ],
+        ),
       ),
     );
   }
 
-  Widget _buildTopBar(BasicVideoCallState state) {
+  Widget _buildLocalVideoMain(VideoCallState state) {
+    if (state.localRenderer != null) {
+      return RTCVideoView(
+        state.localRenderer!,
+        objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
+        mirror: true, // Mirror local video like a selfie camera
+      );
+    } else {
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.videocam_off,
+              size: 64,
+              color: Colors.white54,
+            ),
+            SizedBox(height: 16),
+            Text(
+              'Camera Starting...',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+  }
+
+  Widget _buildLoadingOrWaitingView(VideoCallState state) {
+    String message;
+    if (state.isConnecting) {
+      message = 'Connecting to call...';
+    } else if (!_isInitialized) {
+      message = 'Initializing camera...';
+    } else if (state.errorMessage != null) {
+      message = state.errorMessage!;
+    } else {
+      message = 'Waiting to join call...';
+    }
+
+    return Container(
+      color: Colors.grey[900],
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            if (state.isConnecting)
+              const CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
+              ),
+            const SizedBox(height: 20),
+            Text(
+              message,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.w500,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            if (state.errorMessage != null) ...[
+              const SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: () => _initializeCall(),
+                child: const Text('Retry'),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTopBar(VideoCallState state) {
     return Positioned(
       top: 0,
       left: 0,
       right: 0,
       child: Container(
-        padding: const EdgeInsets.all(16),
+        height: 80,
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              Colors.black.withOpacity(0.8),
+              Colors.black.withOpacity(0.7),
               Colors.transparent,
             ],
           ),
         ),
-        child: Row(
-          children: [
-            // Back button
-            IconButton(
-              onPressed: _showLeaveCallDialog,
-              icon: const Icon(Icons.arrow_back, color: Colors.white),
-            ),
-            
-            const SizedBox(width: 8),
-            
-            // Call info
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    state.sessionId ?? 'Video Call',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  Text(
-                    'Video Call Session',
-                    style: TextStyle(
-                      color: Colors.grey[300],
-                      fontSize: 14,
-                    ),
-                  ),
-                ],
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Row(
+            children: [
+              IconButton(
+                onPressed: () => Navigator.of(context).pop(),
+                icon: const Icon(Icons.arrow_back, color: Colors.white),
               ),
-            ),
-            
-            // Connection status
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: state.isInCall ? Colors.green : Colors.orange,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                state.isInCall ? 'Connected' : 'Connecting',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Text(
+                      'Video Call Session',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    if (state.currentSession != null) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        'Session: ${widget.sessionId}',
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.8),
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ),
-            ),
-          ],
+              // Connection status indicator
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: state.isInCall ? Colors.green : Colors.orange,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  state.isInCall ? 'Connected' : 'Connecting',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              // Remote participants button
+              IconButton(
+                onPressed: () => _navigateToRemoteParticipants(),
+                icon: const Icon(Icons.people, color: Colors.white),
+                tooltip: 'View Remote Participants',
+              ),
+              // Debug screen button
+              IconButton(
+                onPressed: () => _navigateToDebugScreen(),
+                icon: const Icon(Icons.settings, color: Colors.white),
+                tooltip: 'Debug Screen',
+              ),
+              IconButton(
+                onPressed: _showCameraDebug,
+                icon: const Icon(Icons.bug_report, color: Colors.white),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
   void _toggleScreenShare() {
-    // Screen sharing not implemented in basic provider
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Screen sharing not implemented')),
-    );
+    try {
+      // Note: Screen sharing might not be implemented in the current provider
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Screen sharing not available yet')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Screen sharing error: $e')),
+      );
+    }
   }
 
   void _switchCamera() {
-    // This would need to be implemented in the WebRTC service
-    // For now, we'll show a placeholder
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Camera switching not implemented yet')),
+    );
+  }
+
+  void _showCameraDebug() {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        child: SizedBox(
+          width: 600,
+          height: 500,
+          child: SingleChildScrollView(
+            child: CameraDebugWidget(),
+          ),
+        ),
+      ),
     );
   }
 
@@ -255,15 +500,25 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
             onPressed: () => Navigator.of(context).pop(),
             child: const Text('Cancel'),
           ),
-          TextButton(
+          ElevatedButton(
             onPressed: () async {
-              Navigator.of(context).pop();
-              await ref.read(basicVideoCallControllerProvider).leaveCall();
-              if (mounted) {
-                Navigator.of(context).pop();
+              Navigator.of(context).pop(); // Close dialog
+              try {
+                await ref.read(videoCallProvider.notifier).leaveCall();
+                if (mounted) {
+                  Navigator.of(context).pop(); // Go back to previous screen
+                }
+              } catch (e) {
+                if (mounted) {
+                  _showErrorDialog('Failed to leave call: $e');
+                }
               }
             },
-            child: const Text('Leave', style: TextStyle(color: Colors.red)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Leave'),
           ),
         ],
       ),
@@ -271,11 +526,6 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
   }
 
   void _showErrorDialog(String message) {
-    if (!mounted) return;
-    
-    // Clear the error first to prevent repeated dialogs
-    Future.microtask(() => ref.read(basicVideoCallControllerProvider).clearError());
-    
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -283,10 +533,7 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
         content: Text(message),
         actions: [
           TextButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              Navigator.of(context).pop(); // Also pop the call screen
-            },
+            onPressed: () => Navigator.of(context).pop(),
             child: const Text('OK'),
           ),
         ],
@@ -294,10 +541,25 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
     );
   }
 
+  void _navigateToRemoteParticipants() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => const RemoteParticipantsScreen(),
+      ),
+    );
+  }
+
+  void _navigateToDebugScreen() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => const VideoCallDebugScreen(),
+      ),
+    );
+  }
+
   @override
   void dispose() {
-    // Clean up resources
-    ref.read(basicVideoCallControllerProvider).leaveCall();
+    // Don't try to access ref during dispose to avoid the error we saw
     super.dispose();
   }
 }

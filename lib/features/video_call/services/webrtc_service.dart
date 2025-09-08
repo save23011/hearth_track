@@ -21,27 +21,26 @@ class WebRTCService {
       {
         'urls': 'stun:stun.services.mozilla.com'
       },
+      // Add additional public STUN servers for better connectivity
+      {
+        'urls': 'stun:stun.relay.metered.ca:80'
+      },
     ],
+    'iceCandidatePoolSize': 10,
   };
 
   final Map<String, dynamic> _mediaConstraints = {
     'audio': {
-      'mandatory': {
-        'googEchoCancellation': true,
-        'googAutoGainControl': true,
-        'googNoiseSuppression': true,
-        'googHighpassFilter': true,
-      },
-      'optional': [],
+      'echoCancellation': true,
+      'autoGainControl': true,
+      'noiseSuppression': true,
+      'sampleRate': 48000,
     },
     'video': {
-      'mandatory': {
-        'minWidth': '320',
-        'minHeight': '240',
-        'minFrameRate': '15',
-      },
+      'width': {'min': 320, 'ideal': 640, 'max': 1280},
+      'height': {'min': 240, 'ideal': 480, 'max': 720},
+      'frameRate': {'min': 15, 'ideal': 24, 'max': 30},
       'facingMode': 'user',
-      'optional': [],
     },
   };
 
@@ -96,6 +95,14 @@ class WebRTCService {
 
   // Request necessary permissions
   Future<void> _requestPermissions() async {
+    if (kIsWeb) {
+      // For web, permissions are handled by getUserMedia
+      // We'll handle this in startLocalStream instead
+      debugPrint('Web platform: Permissions will be requested when accessing media');
+      return;
+    }
+    
+    // For mobile platforms
     final permissions = [
       Permission.camera,
       Permission.microphone,
@@ -106,6 +113,49 @@ class WebRTCService {
       if (status != PermissionStatus.granted) {
         throw Exception('Permission ${permission.toString()} not granted');
       }
+    }
+  }
+
+  // Test camera access without starting full stream
+  Future<bool> testCameraAccess() async {
+    try {
+      debugPrint('Testing camera access...');
+      
+      // Try to get a simple video stream
+      final testStream = await navigator.mediaDevices.getUserMedia({
+        'video': true,
+        'audio': false,
+      });
+      
+      // Immediately stop the test stream
+      testStream.getTracks().forEach((track) {
+        track.stop();
+      });
+      testStream.dispose();
+      
+      debugPrint('Camera access test: SUCCESS');
+      return true;
+    } catch (e) {
+      debugPrint('Camera access test: FAILED - $e');
+      return false;
+    }
+  }
+
+  // Get available camera devices
+  Future<List<MediaDeviceInfo>> getCameraDevices() async {
+    try {
+      final devices = await navigator.mediaDevices.enumerateDevices();
+      final cameras = devices.where((device) => device.kind == 'videoinput').toList();
+      
+      debugPrint('Found ${cameras.length} camera device(s):');
+      for (var camera in cameras) {
+        debugPrint('  - ${camera.label.isNotEmpty ? camera.label : 'Camera'} (${camera.deviceId})');
+      }
+      
+      return cameras;
+    } catch (e) {
+      debugPrint('Error enumerating camera devices: $e');
+      return [];
     }
   }
 
@@ -139,7 +189,7 @@ class WebRTCService {
           }
         };
       } else {
-        // Regular video/audio configuration
+        // Regular video/audio configuration - always try to get both initially
         mediaConstraints = {
           'audio': audio ? _mediaConstraints['audio'] : false,
           'video': video ? _mediaConstraints['video'] : false,
@@ -153,15 +203,72 @@ class WebRTCService {
         _localStream = await navigator.mediaDevices.getUserMedia(mediaConstraints);
       }
 
+      // If video is disabled, disable the video tracks but keep the stream
+      if (!video && _localStream != null) {
+        final videoTracks = _localStream!.getVideoTracks();
+        for (final track in videoTracks) {
+          track.enabled = false;
+          debugPrint('Disabled video track: ${track.id}');
+        }
+      }
+
+      // If audio is disabled, disable the audio tracks but keep the stream
+      if (!audio && _localStream != null) {
+        final audioTracks = _localStream!.getAudioTracks();
+        for (final track in audioTracks) {
+          track.enabled = false;
+          debugPrint('Disabled audio track: ${track.id}');
+        }
+      }
+
       if (_localRenderer != null) {
         _localRenderer!.srcObject = _localStream;
         _localRendererController.add(_localRenderer);
       }
 
       debugPrint('Local stream started successfully');
+      debugPrint('Video tracks: ${_localStream?.getVideoTracks().length}, Audio tracks: ${_localStream?.getAudioTracks().length}');
     } catch (e) {
       debugPrint('Error starting local stream: $e');
-      throw Exception('Failed to start local stream: $e');
+      
+      // If we can't get video+audio, try audio only
+      if (video && audio) {
+        debugPrint('Retrying with audio only...');
+        try {
+          _localStream = await navigator.mediaDevices.getUserMedia({
+            'audio': _mediaConstraints['audio'],
+            'video': false,
+          });
+          
+          if (_localRenderer != null) {
+            _localRenderer!.srcObject = _localStream;
+            _localRendererController.add(_localRenderer);
+          }
+          
+          debugPrint('Local stream started with audio only');
+          return;
+        } catch (audioError) {
+          debugPrint('Failed to get audio-only stream: $audioError');
+        }
+      }
+      
+      // Provide more specific error messages for camera issues
+      String errorMessage;
+      if (e.toString().contains('NotAllowedError') || e.toString().contains('Permission denied')) {
+        errorMessage = 'Camera permission denied. Please allow camera access in your browser settings and refresh the page.';
+      } else if (e.toString().contains('NotFoundError') || e.toString().contains('Requested device not found')) {
+        errorMessage = 'No camera found. Please connect a camera and try again.';
+      } else if (e.toString().contains('NotReadableError') || e.toString().contains('Could not start video source')) {
+        errorMessage = 'Camera is already in use by another application. Please close other applications using the camera and try again.';
+      } else if (e.toString().contains('OverconstrainedError')) {
+        errorMessage = 'Camera does not support the requested video settings. Please try with different settings.';
+      } else if (e.toString().contains('AbortError')) {
+        errorMessage = 'Camera access was aborted. Please try again.';
+      } else {
+        errorMessage = 'Failed to access camera: $e';
+      }
+      
+      throw Exception(errorMessage);
     }
   }
 
@@ -182,49 +289,100 @@ class WebRTCService {
   }
 
   // Create peer connection for a remote participant
-  Future<RTCPeerConnection> createPeerConnection(String participantId) async {
+  Future<RTCPeerConnection> createPeerConnectionForParticipant(String participantId) async {
     if (!_isInitialized) {
       throw Exception('WebRTC not initialized');
     }
 
     try {
-      // Create peer connection using flutter_webrtc 0.10.x API
-      // Use the sessionId as identifier and set configuration separately
-      final pc = await createPeerConnection(participantId);
+      debugPrint('Creating peer connection for participant: $participantId');
       
-      // Set configuration after creation
-      await pc.setConfiguration(_configuration);
+      // Create peer connection using flutter_webrtc global function  
+      final pc = await createPeerConnection(_configuration);
 
-      // Add local stream to peer connection
-      if (_localStream != null) {
-        _localStream!.getTracks().forEach((track) {
-          pc.addTrack(track, _localStream!);
-        });
-      }
+      // Set up event handlers before adding local stream
+      
+      // Handle remote stream using modern onTrack API
+      pc.onTrack = (RTCTrackEvent event) {
+        debugPrint('Received track from $participantId');
+        debugPrint('Track kind: ${event.track.kind}');
+        debugPrint('Track enabled: ${event.track.enabled}');
+        debugPrint('Streams count: ${event.streams.length}');
+        
+        if (event.streams.isNotEmpty) {
+          final stream = event.streams.first;
+          debugPrint('Stream ID: ${stream.id}');
+          debugPrint('Stream has ${stream.getVideoTracks().length} video tracks, ${stream.getAudioTracks().length} audio tracks');
+          
+          // Validate stream before handling
+          if (stream.getVideoTracks().isEmpty && stream.getAudioTracks().isEmpty) {
+            debugPrint('WARNING: Received empty stream from $participantId');
+            return;
+          }
+          
+          _handleRemoteStream(participantId, stream);
+        } else {
+          debugPrint('WARNING: Track event has no streams for $participantId');
+        }
+      };
 
-      // Handle remote stream
+      // Keep legacy onAddStream for compatibility
       pc.onAddStream = (stream) {
+        debugPrint('LEGACY: Received remote stream from $participantId');
+        debugPrint('LEGACY: Remote stream has ${stream.getVideoTracks().length} video tracks, ${stream.getAudioTracks().length} audio tracks');
+        
+        // Validate stream before handling
+        if (stream.getVideoTracks().isEmpty && stream.getAudioTracks().isEmpty) {
+          debugPrint('WARNING: LEGACY: Received empty stream from $participantId');
+          return;
+        }
+        
         _handleRemoteStream(participantId, stream);
       };
 
       // Handle ICE candidates
       pc.onIceCandidate = (candidate) {
+        debugPrint('Generated ICE candidate for $participantId: ${candidate.candidate}');
         _handleIceCandidate(participantId, candidate);
       };
 
       // Handle connection state changes
       pc.onConnectionState = (state) {
         debugPrint('Peer connection state for $participantId: $state');
-        if (state == RTCPeerConnectionState.RTCPeerConnectionStateFailed ||
-            state == RTCPeerConnectionState.RTCPeerConnectionStateClosed) {
+        if (state == RTCPeerConnectionState.RTCPeerConnectionStateFailed) {
+          debugPrint('Peer connection failed for $participantId - but keeping it for potential recovery');
+          // Don't immediately remove - let higher level logic handle it
+        } else if (state == RTCPeerConnectionState.RTCPeerConnectionStateClosed) {
+          debugPrint('Peer connection closed for $participantId');
+          // Only remove if explicitly closed
           _removePeerConnection(participantId);
+        } else if (state == RTCPeerConnectionState.RTCPeerConnectionStateConnected) {
+          debugPrint('✅ Peer connection established successfully for $participantId');
         }
       };
 
+      // Handle ICE connection state changes
+      pc.onIceConnectionState = (state) {
+        debugPrint('ICE connection state for $participantId: $state');
+      };
+
+      // Add local stream to peer connection if available
+      if (_localStream != null) {
+        debugPrint('Adding local stream tracks to peer connection for $participantId');
+        _localStream!.getTracks().forEach((track) {
+          debugPrint('Adding track: ${track.kind} (enabled: ${track.enabled})');
+          pc.addTrack(track, _localStream!);
+        });
+      } else {
+        debugPrint('Warning: No local stream available, but peer connection will still work for receiving remote streams');
+        // Note: Even without local stream, the peer connection can still receive remote streams
+      }
+
       _peerConnections[participantId] = pc;
+      debugPrint('Peer connection created successfully for $participantId');
       return pc;
     } catch (e) {
-      debugPrint('Error creating peer connection: $e');
+      debugPrint('Error creating peer connection for $participantId: $e');
       throw Exception('Failed to create peer connection: $e');
     }
   }
@@ -232,23 +390,82 @@ class WebRTCService {
   // Handle remote stream
   void _handleRemoteStream(String participantId, MediaStream stream) async {
     try {
+      debugPrint('Handling remote stream for participant: $participantId');
+      debugPrint('Stream ID: ${stream.id}');
+      debugPrint('Stream has ${stream.getVideoTracks().length} video tracks and ${stream.getAudioTracks().length} audio tracks');
+      
+      // Log track details
+      stream.getVideoTracks().forEach((track) {
+        debugPrint('Video track: ${track.id}, enabled: ${track.enabled}, muted: ${track.muted}');
+      });
+      
+      stream.getAudioTracks().forEach((track) {
+        debugPrint('Audio track: ${track.id}, enabled: ${track.enabled}, muted: ${track.muted}');
+      });
+
+      // Check if we already have a renderer for this participant
+      if (_remoteRenderers.containsKey(participantId)) {
+        debugPrint('Disposing existing renderer for $participantId');
+        await _remoteRenderers[participantId]!.dispose();
+      }
+      
       final renderer = RTCVideoRenderer();
       await renderer.initialize();
+      
+      debugPrint('Setting stream to renderer for $participantId');
+      
+      // Set the stream to the renderer
       renderer.srcObject = stream;
+      
+      // Add a small delay to ensure the renderer is properly initialized
+      await Future.delayed(const Duration(milliseconds: 200));
+
+      // Verify the renderer has the stream
+      if (renderer.srcObject == null) {
+        debugPrint('ERROR: Renderer srcObject is null after setting stream for $participantId');
+        return;
+      }
 
       _remoteRenderers[participantId] = renderer;
+      
+      debugPrint('Remote renderer successfully created for $participantId');
+      debugPrint('Renderer video width: ${renderer.videoWidth}, height: ${renderer.videoHeight}');
+      
+      // Notify listeners about the update with a small delay to ensure UI is ready
+      await Future.delayed(const Duration(milliseconds: 100));
       _remoteRenderersController.add(Map.from(_remoteRenderers));
 
-      debugPrint('Remote stream added for participant: $participantId');
+      debugPrint('Remote stream successfully added for participant: $participantId');
+      debugPrint('Total remote renderers: ${_remoteRenderers.length}');
+      debugPrint('Remote renderers keys: ${_remoteRenderers.keys.toList()}');
+      
+      // Log all current remote streams for debugging
+      _remoteRenderers.forEach((key, renderer) {
+        debugPrint('Remote renderer [$key]: srcObject=${renderer.srcObject != null}, videoTracks=${renderer.srcObject?.getVideoTracks().length ?? 0}');
+      });
+      
     } catch (e) {
-      debugPrint('Error handling remote stream: $e');
+      debugPrint('Error handling remote stream for $participantId: $e');
+      debugPrint('Stack trace: ${StackTrace.current}');
     }
   }
 
-  // Handle ICE candidate (to be implemented with signaling)
+  // Handle ICE candidate (integrate with signaling)
   void _handleIceCandidate(String participantId, RTCIceCandidate candidate) {
     // This will be handled by the signaling service
     debugPrint('ICE candidate for $participantId: ${candidate.toMap()}');
+    
+    // We need to send this to the signaling service
+    // This will be called from outside
+    _onIceCandidate?.call(participantId, candidate);
+  }
+
+  // Callback for ICE candidates
+  Function(String, RTCIceCandidate)? _onIceCandidate;
+  
+  // Set ICE candidate callback
+  void setOnIceCandidate(Function(String, RTCIceCandidate) callback) {
+    _onIceCandidate = callback;
   }
 
   // Create offer
@@ -355,15 +572,74 @@ class WebRTCService {
     return audioTracks.isNotEmpty && audioTracks.first.enabled;
   }
 
-  // Remove peer connection
-  void _removePeerConnection(String participantId) {
+  // Get peer connection info for debugging
+  Map<String, dynamic> getPeerConnectionInfo() {
+    final info = <String, dynamic>{};
+    for (final entry in _peerConnections.entries) {
+      final peerId = entry.key;
+      final pc = entry.value;
+      info[peerId] = {
+        'connectionState': pc.connectionState?.toString(),
+        'iceConnectionState': pc.iceConnectionState?.toString(),
+        'signalingState': pc.signalingState?.toString(),
+      };
+    }
+    return info;
+  }
+
+  // Force renegotiation for all peer connections
+  Future<void> renegotiateAllConnections() async {
+    debugPrint('Renegotiating all peer connections...');
+    for (final entry in _peerConnections.entries) {
+      final peerId = entry.key;
+      final pc = entry.value;
+      try {
+        debugPrint('Renegotiating connection with $peerId');
+        // Create new offer
+        final offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        // Note: The offer would need to be sent via the signaling service
+        debugPrint('Created new offer for $peerId');
+      } catch (e) {
+        debugPrint('Error renegotiating with $peerId: $e');
+      }
+    }
+  }
+
+  // Get peer connections information for debugging
+  Map<String, String> get peerConnectionStates {
+    final states = <String, String>{};
+    _peerConnections.forEach((participantId, pc) {
+      states[participantId] = pc.connectionState?.toString() ?? 'Unknown';
+    });
+    return states;
+  }
+
+  // Check if we have a peer connection for a participant
+  bool hasPeerConnection(String participantId) {
+    return _peerConnections.containsKey(participantId);
+  }
+
+  // Remove peer connection for a participant (public method)
+  Future<void> removePeerConnection(String participantId) async {
+    debugPrint('Removing peer connection for: $participantId');
+    await _removePeerConnection(participantId);
+  }
+
+  // Remove peer connection (private method)
+  Future<void> _removePeerConnection(String participantId) async {
     final pc = _peerConnections.remove(participantId);
-    pc?.close();
+    if (pc != null) {
+      await pc.close();
+    }
 
     final renderer = _remoteRenderers.remove(participantId);
-    renderer?.dispose();
+    if (renderer != null) {
+      await renderer.dispose();
+    }
 
     _remoteRenderersController.add(Map.from(_remoteRenderers));
+    debugPrint('Peer connection removed for: $participantId');
   }
 
   // End call

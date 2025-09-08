@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../shared/services/auth_service.dart';
+import '../../../core/services/api_service.dart';
 import 'video_call_screen.dart';
 
 class CallInitiationScreen extends ConsumerStatefulWidget {
@@ -245,17 +247,39 @@ class _CallInitiationScreenState extends ConsumerState<CallInitiationScreen> {
     });
 
     try {
-      // For demo purposes, using a hardcoded user ID and token
-      // In a real app, you would get these from authentication
-      const userId = 'demo_user_123';
-      const token = 'demo_token_456';
+      // Get current user and token
+      final user = await AuthService.getCurrentUser();
+      final token = ApiService.authToken;
+      
+      if (user == null || token == null) {
+        // For demo purposes, create a demo user
+        final timestamp = DateTime.now().millisecondsSinceEpoch;
+        final demoUser = {
+          'id': 'demo_user_$timestamp',
+          'firstName': 'Demo',
+          'lastName': 'User',
+        };
+        final demoToken = 'demo_token_$timestamp';
+        
+        await Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (context) => VideoCallScreen(
+              sessionId: _sessionIdController.text.trim(),
+              serverUrl: _serverUrlController.text.trim(),
+              userId: demoUser['id']!,
+              token: demoToken,
+            ),
+          ),
+        );
+        return;
+      }
 
       await Navigator.of(context).push(
         MaterialPageRoute(
           builder: (context) => VideoCallScreen(
             sessionId: _sessionIdController.text.trim(),
             serverUrl: _serverUrlController.text.trim(),
-            userId: userId,
+            userId: user.id,
             token: token,
           ),
         ),
@@ -282,20 +306,47 @@ class _CallInitiationScreenState extends ConsumerState<CallInitiationScreen> {
     });
 
     try {
+      // Get current user and token
+      final user = await AuthService.getCurrentUser();
+      final token = ApiService.authToken;
+      
+      if (user == null || token == null) {
+        // For demo purposes, create a demo user
+        final timestamp = DateTime.now().millisecondsSinceEpoch;
+        final demoUser = {
+          'id': 'demo_user_$timestamp',
+          'firstName': 'Demo',
+          'lastName': 'User',
+        };
+        final demoToken = 'demo_token_$timestamp';
+        
+        // Generate a new session ID
+        final sessionId = _generateSessionId();
+        _sessionIdController.text = sessionId;
+
+        await Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (context) => VideoCallScreen(
+              sessionId: sessionId,
+              serverUrl: _serverUrlController.text.trim(),
+              userId: demoUser['id']!,
+              token: demoToken,
+            ),
+          ),
+        );
+        return;
+      }
+
       // Generate a new session ID
       final sessionId = _generateSessionId();
       _sessionIdController.text = sessionId;
-
-      // For demo purposes, using a hardcoded user ID and token
-      const userId = 'demo_user_123';
-      const token = 'demo_token_456';
 
       await Navigator.of(context).push(
         MaterialPageRoute(
           builder: (context) => VideoCallScreen(
             sessionId: sessionId,
             serverUrl: _serverUrlController.text.trim(),
-            userId: userId,
+            userId: user.id,
             token: token,
           ),
         ),
