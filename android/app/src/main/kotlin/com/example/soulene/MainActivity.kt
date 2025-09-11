@@ -1,4 +1,4 @@
-package com.example.hearth_track
+package com.example.soulene
 
 import io.flutter.embedding.android.FlutterActivity
 
