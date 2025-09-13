@@ -27,9 +27,10 @@ class AuthService {
       if (response.isSuccess && response.data != null) {
         final authResponse = AuthResponse.fromJson(response.data!);
         
-        // Save token if registration successful
+        // Save token & user details if registration successful
         if (authResponse.success && authResponse.token != null) {
-          await ApiService.setAuthToken(authResponse.token!);
+          await ApiService.setAuthData(authResponse.token!,authResponse.user?.toJson(),
+          );
         }
         
         return authResponse;
@@ -67,7 +68,7 @@ class AuthService {
         
         // Save token if login successful
         if (authResponse.success && authResponse.token != null) {
-          await ApiService.setAuthToken(authResponse.token!);
+          await ApiService.setAuthData(authResponse.token!, authResponse.user?.toJson(),);
         }
         
         return authResponse;
@@ -111,11 +112,11 @@ class AuthService {
       );
       
       // Clear token regardless of API response
-      await ApiService.clearAuthToken();
+      await ApiService.clearAuthData();
       return true;
     } catch (e) {
       // Clear token even if API call fails
-      await ApiService.clearAuthToken();
+      await ApiService.clearAuthData();
       return true;
     }
   }
@@ -218,7 +219,7 @@ class AuthService {
         
         // Save token if login successful
         if (authResponse.success && authResponse.token != null) {
-          await ApiService.setAuthToken(authResponse.token!);
+          await ApiService.setAuthData(authResponse.token!, authResponse.user?.toJson());
         }
         
         return authResponse;
@@ -249,7 +250,7 @@ class AuthService {
         
         // Save token if login successful
         if (authResponse.success && authResponse.token != null) {
-          await ApiService.setAuthToken(authResponse.token!);
+          await ApiService.setAuthData(authResponse.token!, authResponse.user?.toJson(),);
         }
         
         return authResponse;

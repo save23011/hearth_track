@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import '../../../../core/theme/app_theme.dart';
-import '../../../../shared/services/auth_service.dart';
-import '../../../../shared/widgets/custom_text_field.dart';
-import '../../../../shared/widgets/custom_button.dart';
-import '../../../../shared/widgets/loading_overlay.dart';
+import '../../../core/theme/app_theme.dart';
+import '../../../shared/services/auth_service.dart';
+import '../../../shared/widgets/custom_text_field.dart';
+import '../../../shared/widgets/custom_button.dart';
+import '../../../shared/widgets/loading_overlay.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -111,17 +111,30 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final screenHeight = MediaQuery.of(context).size.height;
+    final screenWidth = MediaQuery.of(context).size.width;
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppTheme.textPrimary),
-          onPressed: _goToLogin,
+        title: Text('Create Account',
+          style:
+            TextStyle(color: AppTheme.textPrimary, fontSize: 25,
+          ),
+          textAlign: TextAlign.center,
         ),
       ),
-      body: LoadingOverlay(
+      body: Container(
+        height: double.infinity,
+        width: double.infinity,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Colors.white, Color(0xFFDEF3FD), Color(0xFFF0DEFD)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        ),child: LoadingOverlay(
         isLoading: _isLoading,
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24.0),
@@ -130,26 +143,57 @@ class _RegisterScreenState extends State<RegisterScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // Header
-                Text(
-                  'Create Account',
-                  style: AppTheme.heading1.copyWith(
-                    color: AppTheme.textPrimary,
+                Center(
+                  child: Container(
+                    width: 80,
+                    height: 80,
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryColor,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Image.asset(
+                      "assets/icons/brain_outline.png",
+                      color: Colors.white,
+                      height: 50,
+                    ),
                   ),
-                  textAlign: TextAlign.center,
                 ),
 
-                const SizedBox(height: 8),
+                SizedBox(height: screenHeight*0.01 ),
+                // Header
+                ShaderMask(
+                  // Define the gradient
+                  shaderCallback: (Rect bounds) {
+                    return const LinearGradient(
+                      colors: [AppTheme.primaryColor, Colors.purple],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ).createShader(bounds);
+                  },
+                  // The blend mode determines how the gradient interacts with the text
+                  blendMode: BlendMode.srcIn,
+                  // The Text widget to which the gradient will be applied
+                  child:
+                  Text(
+                    'Join Soulene',
+                    style: AppTheme.heading1.copyWith(
+                      color: AppTheme.textPrimary,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+
+                SizedBox(height: screenHeight*0.007),
 
                 Text(
-                  'Join Hearth Track and start your wellness journey',
+                  'Create account to start your mental wellness journey',
                   style: AppTheme.bodyLarge.copyWith(
                     color: AppTheme.textSecondary,
                   ),
                   textAlign: TextAlign.center,
                 ),
 
-                const SizedBox(height: 32),
+                SizedBox(height: screenHeight*0.03),
 
                 // First Name and Last Name Row
                 Row(
@@ -191,7 +235,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ],
                 ),
 
-                const SizedBox(height: 16),
+                 SizedBox(height: screenHeight*0.015),
 
                 // Email Field
                 CustomTextField(
@@ -211,7 +255,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   },
                 ),
 
-                const SizedBox(height: 16),
+                SizedBox(height: screenHeight*0.015),
 
                 // Phone Field (Optional)
                 CustomTextField(
@@ -230,13 +274,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   },
                 ),
 
-                const SizedBox(height: 16),
+                SizedBox(height: screenHeight*0.015),
 
                 // Password Field
                 CustomTextField(
                   controller: _passwordController,
                   label: 'Password',
-                  hint: 'Enter your password',
+                  hint: 'Create a strong password',
                   obscureText: !_isPasswordVisible,
                   prefixIcon: Icons.lock_outlined,
                   suffixIcon: IconButton(
@@ -264,7 +308,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   },
                 ),
 
-                const SizedBox(height: 16),
+                SizedBox(height: screenHeight*0.015),
 
                 // Confirm Password Field
                 CustomTextField(
@@ -295,13 +339,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   },
                 ),
 
-                const SizedBox(height: 24),
+                SizedBox(height: screenHeight*0.02),
 
                 // Terms and Conditions
                 Row(
                   children: [
                     Checkbox(
                       value: _agreeToTerms,
+                      side: BorderSide(color: Colors.black38 ),
                       onChanged: (value) {
                         setState(() {
                           _agreeToTerms = value ?? false;
@@ -337,7 +382,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ],
                 ),
 
-                const SizedBox(height: 32),
+                SizedBox(height: screenHeight*0.02),
 
                 // Register Button
                 CustomButton(
@@ -346,7 +391,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   isLoading: _isLoading,
                 ),
 
-                const SizedBox(height: 32),
+                SizedBox(height: screenHeight*0.02),
 
                 // Sign In Link
                 Row(
@@ -359,7 +404,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     TextButton(
                       onPressed: _goToLogin,
                       child: Text(
-                        'Sign In',
+                        'Log In',
                         style: AppTheme.bodyMedium.copyWith(
                           color: AppTheme.primaryColor,
                           fontWeight: FontWeight.w600,
@@ -372,6 +417,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             ),
           ),
         ),
+      ),
       ),
     );
   }

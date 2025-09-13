@@ -4,11 +4,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/config/app_config.dart';
 import 'core/theme/app_theme.dart';
-import 'features/auth/presentation/pages/splash_screen.dart';
-import 'features/auth/presentation/pages/onboarding_screen.dart';
-import 'features/auth/presentation/pages/login_screen.dart';
-import 'features/auth/presentation/pages/register_screen.dart';
-import 'features/home/presentation/pages/main_navigation.dart';
+import '/features/auth/pages/splash_screen.dart';
+import 'features/auth/pages/onboarding_screen.dart';
+import 'features/auth/pages/login_screen.dart';
+import 'features/auth/pages/register_screen.dart';
+import 'features/home/pages/main_navigation.dart';
 import 'features/video_call/screens/call_initiation_screen.dart';
 
 void main() async {
@@ -32,13 +32,13 @@ void main() async {
 
   runApp(
     const ProviderScope(
-      child: HearthTrackApp(),
+      child: SouleneApp(),
     ),
   );
 }
 
-class HearthTrackApp extends StatelessWidget {
-  const HearthTrackApp({super.key});
+class SouleneApp extends StatelessWidget {
+  const SouleneApp({super.key});
 
   @override
   Widget build(BuildContext context) {

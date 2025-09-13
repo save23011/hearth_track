@@ -8,7 +8,7 @@ class AppConfig {
   // static const String socketUrl = 'https://your-domain.com';
   
   // App Information
-  static const String appName = 'Hearth Track';
+  static const String appName = 'Soulene';
   static const String appVersion = '1.0.0';
   
   // Database Configuration

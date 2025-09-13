@@ -7,6 +7,7 @@ import '../config/app_config.dart';
 class ApiService {
   static const String _baseUrl = AppConfig.baseUrl;
   static String? _authToken;
+  static Map<String, dynamic>? _user;
   
   // Singleton pattern
   static final ApiService _instance = ApiService._internal();
@@ -17,6 +18,10 @@ class ApiService {
   static Future<void> initialize() async {
     final prefs = await SharedPreferences.getInstance();
     _authToken = prefs.getString(AppConfig.tokenKey);
+    final userJson = prefs.getString(AppConfig.userKey);
+    if (userJson != null) {
+      _user = json.decode(userJson);
+    }
   }
 
   // Get headers with authentication
@@ -32,22 +37,28 @@ class ApiService {
     if (_authToken != null) 'Authorization': 'Bearer $_authToken',
   };
 
-  // Set auth token
-  static Future<void> setAuthToken(String token) async {
+  // Set auth token & user data
+  static Future<void> setAuthData(String token, Map<String, dynamic>? user) async {
     _authToken = token;
+    _user = user;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(AppConfig.tokenKey, token);
+    await prefs.setString(AppConfig.userKey, json.encode(user));
   }
 
-  // Clear auth token
-  static Future<void> clearAuthToken() async {
+
+  // Clear auth data
+  static Future<void> clearAuthData() async {
     _authToken = null;
+    _user = null;
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(AppConfig.tokenKey);
+    await prefs.remove(AppConfig.userKey);
   }
 
-  // Get auth token
+  // Get auth data
   static String? get authToken => _authToken;
+  static Map<String , dynamic>? get user => _user;
 
   // Generic GET request
   Future<ApiResponse<T>> get<T>(

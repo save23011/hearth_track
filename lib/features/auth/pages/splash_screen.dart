@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import '../../../../core/theme/app_theme.dart';
-import '../../../../core/config/app_config.dart';
-import '../../../../shared/services/auth_service.dart';
+import '../../../core/theme/app_theme.dart';
+import '../../../core/config/app_config.dart';
+import '../../../shared/services/auth_service.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -25,7 +25,7 @@ class _SplashScreenState extends State<SplashScreen>
 
   void _initializeAnimations() {
     _animationController = AnimationController(
-      duration: const Duration(milliseconds: 2000),
+      duration: const Duration(milliseconds: 3000),
       vsync: this,
     );
 
@@ -50,7 +50,7 @@ class _SplashScreenState extends State<SplashScreen>
 
   Future<void> _checkAuthStatus() async {
     // Wait for animation to complete
-    await Future.delayed(const Duration(milliseconds: 2500));
+    await Future.delayed(const Duration(milliseconds: 3000));
 
     if (!mounted) return;
 
@@ -83,9 +83,16 @@ class _SplashScreenState extends State<SplashScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.primaryColor,
-      body: SafeArea(
-        child: Center(
+      backgroundColor: Colors.white,
+      body: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Colors.white, Color(0xFFDEF3FD), Color(0xFFF0DEFD)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+            ), child:
+        Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -101,7 +108,7 @@ class _SplashScreenState extends State<SplashScreen>
                         width: 120,
                         height: 120,
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: AppTheme.primaryColor,
                           borderRadius: BorderRadius.circular(30),
                           boxShadow: [
                             BoxShadow(
@@ -111,10 +118,10 @@ class _SplashScreenState extends State<SplashScreen>
                             ),
                           ],
                         ),
-                        child: const Icon(
-                          Icons.favorite,
-                          color: AppTheme.primaryColor,
-                          size: 60,
+                        child: Image.asset(
+                          "assets/icons/brain_outline.png",
+                          color: Colors.white,
+                          height: 20,
                         ),
                       ),
                     ),
@@ -133,7 +140,7 @@ class _SplashScreenState extends State<SplashScreen>
                     child: Text(
                       AppConfig.appName,
                       style: AppTheme.heading1.copyWith(
-                        color: Colors.white,
+                        color: Colors.black,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -150,9 +157,9 @@ class _SplashScreenState extends State<SplashScreen>
                   return FadeTransition(
                     opacity: _fadeAnimation,
                     child: Text(
-                      'Your Personal Health Companion',
+                      'A Gentle Space For Your Soul',
                       style: AppTheme.bodyLarge.copyWith(
-                        color: Colors.white.withOpacity(0.9),
+                        color: Colors.black.withOpacity(0.9),
                         fontWeight: FontWeight.w300,
                       ),
                     ),
@@ -172,7 +179,7 @@ class _SplashScreenState extends State<SplashScreen>
                       width: 30,
                       height: 30,
                       child: CircularProgressIndicator(
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.black),
                         strokeWidth: 2,
                       ),
                     ),

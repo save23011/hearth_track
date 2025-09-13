@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../../core/theme/app_theme.dart';
+import '../../../core/theme/app_theme.dart';
 // import 'package:page_view_dot_indicator/page_view_dot_indicator.dart';
 
 class OnboardingScreen extends StatefulWidget {
@@ -15,39 +15,39 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   final List<OnboardingData> _onboardingData = [
     OnboardingData(
-      title: 'Welcome to Hearth Track',
-      description: 'Your personal health and wellness companion that helps you track your journey to better mental and physical health.',
-      icon: Icons.favorite,
+      title: 'Welcome to Soulene',
+      description: 'Your trusted companion in nurturing mental and emotional wellness, guiding you on your journey towards a calmer mind and a healthier you',
+      icon: Image.asset("assets/icons/brain_outline.png",color: AppTheme.primaryColor, height: 0, width: 0,),
       color: AppTheme.primaryColor,
     ),
     OnboardingData(
       title: 'AI-Powered Insights',
       description: 'Get personalized recommendations and insights powered by advanced AI to help you achieve your health goals.',
-      icon: Icons.psychology,
+      icon: Icon(Icons.psychology, color: AppTheme.secondaryColor, size: 70,),
       color: AppTheme.secondaryColor,
     ),
     OnboardingData(
       title: 'Dynamic Questionnaires',
       description: 'Take adaptive questionnaires that learn from your responses and provide customized remedial plans.',
-      icon: Icons.quiz,
+      icon: Icon(Icons.quiz,color: AppTheme.accentColor, size: 70,),
       color: AppTheme.accentColor,
     ),
     OnboardingData(
       title: 'Therapy Sessions',
       description: 'Connect with licensed therapists through secure video and audio sessions, right from your device.',
-      icon: Icons.video_call,
+      icon: Icon(Icons.video_call, color: AppTheme.primaryColor, size: 70,),
       color: AppTheme.primaryColor,
     ),
     OnboardingData(
       title: 'Exercise Library',
       description: 'Access a comprehensive library of exercises with daily recommendations tailored to your needs.',
-      icon: Icons.fitness_center,
+      icon: Icon(Icons.fitness_center,color: AppTheme.successColor, size: 70, ),
       color: AppTheme.successColor,
     ),
     OnboardingData(
       title: 'Track Your Progress',
       description: 'Monitor your journey with detailed analytics, milestone tracking, and a personal journal.',
-      icon: Icons.trending_up,
+      icon: Icon(Icons.trending_up, color: AppTheme.infoColor, size: 70,),
       color: AppTheme.infoColor,
     ),
   ];
@@ -215,16 +215,16 @@ class _OnboardingPage extends StatelessWidget {
         children: [
           // Icon
           Container(
-            width: 120,
-            height: 120,
+            width: 150,
+            height: 150,
             decoration: BoxDecoration(
               color: data.color.withOpacity(0.1),
               borderRadius: BorderRadius.circular(60),
             ),
-            child: Icon(
-              data.icon,
-              size: 60,
-              color: data.color,
+            child: SizedBox(
+              height: 50,
+              width: 50,
+              child: data.icon,
             ),
           ),
 
@@ -260,7 +260,7 @@ class _OnboardingPage extends StatelessWidget {
 class OnboardingData {
   final String title;
   final String description;
-  final IconData icon;
+  final Widget icon;
   final Color color;
 
   OnboardingData({

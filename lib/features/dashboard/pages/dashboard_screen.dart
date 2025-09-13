@@ -1,6 +1,8 @@
+import 'package:Soulene/core/services/api_service.dart';
 import 'package:flutter/material.dart';
-import '../../../../core/theme/app_theme.dart';
-import '../../../../shared/widgets/custom_button.dart';
+import '../../../core/theme/app_theme.dart';
+import '../../../shared/widgets/custom_button.dart';
+import 'package:Soulene/shared/models/user_model.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -12,9 +14,24 @@ class DashboardScreen extends StatefulWidget {
 class _DashboardScreenState extends State<DashboardScreen> {
   @override
   Widget build(BuildContext context) {
+    final User? user = ApiService.user != null
+        ? User.fromJson(ApiService.user!)
+        : null;
+    final screenHeight = MediaQuery.of(context).size.height;
+    final screenWidth = MediaQuery.of(context).size.width;
     return Scaffold(
       backgroundColor: AppTheme.backgroundLight,
-      body: SafeArea(
+      body:Container(
+        height: double.infinity,
+        width: double.infinity,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Colors.white, Color(0xFFDEF3FD), Color(0xFFF0DEFD)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        ),
+        child: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(16),
           child: Column(
@@ -46,10 +63,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         ),
       ),
+      ),
     );
   }
 
   Widget _buildHeader() {
+    final user = ApiService.user != null
+        ? User.fromJson(ApiService.user!)
+        : null;
     return Row(
       children: [
         Expanded(
@@ -63,7 +84,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
               ),
               Text(
-                'John Doe',
+                "${user?.firstName?? 'John'} ${user?.lastName?? 'Doe'}",
                 style: AppTheme.heading2.copyWith(
                   color: AppTheme.textPrimary,
                 ),

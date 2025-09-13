@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
-import '../../../../core/theme/app_theme.dart';
+import '../../../core/theme/app_theme.dart';
 
-class ExerciseScreen extends StatelessWidget {
-  const ExerciseScreen({super.key});
+class QuestionnaireListScreen extends StatelessWidget {
+  const QuestionnaireListScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.backgroundLight,
       appBar: AppBar(
-        title: const Text('Exercises'),
+        title: const Text('Assessments'),
         backgroundColor: Colors.transparent,
         elevation: 0,
       ),
@@ -18,13 +18,13 @@ class ExerciseScreen extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-              Icons.fitness_center,
+              Icons.quiz,
               size: 80,
-              color: AppTheme.successColor,
+              color: AppTheme.primaryColor,
             ),
             SizedBox(height: 16),
             Text(
-              'Exercise Library',
+              'Questionnaire Feature',
               style: AppTheme.heading2,
             ),
             SizedBox(height: 8),

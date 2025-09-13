@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
-import '../../../../core/theme/app_theme.dart';
-import '../../../../shared/services/auth_service.dart';
-import '../../../../shared/widgets/custom_button.dart';
+import '../../../core/theme/app_theme.dart';
+import '../../../shared/services/auth_service.dart';
+import '../../../shared/widgets/custom_button.dart';
+import 'package:Soulene/shared/models/user_model.dart';
+import 'package:Soulene/core/services/api_service.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -23,7 +25,17 @@ class ProfileScreen extends StatelessWidget {
           ),
         ],
       ),
-      body: SingleChildScrollView(
+      body:Container(
+        height: double.infinity,
+        width: double.infinity,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Colors.white, Color(0xFFDEF3FD), Color(0xFFF0DEFD)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        ),
+        child: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
@@ -44,10 +56,14 @@ class ProfileScreen extends StatelessWidget {
           ],
         ),
       ),
+      ),
     );
   }
 
   Widget _buildProfileHeader() {
+    final user = ApiService.user != null
+        ? User.fromJson(ApiService.user!)
+        : null;
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -77,13 +93,13 @@ class ProfileScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 16),
-          const Text(
-            'John Doe',
+           Text(
+            "${user?.firstName?? 'John'} ${user?.lastName?? 'Doe'}",
             style: AppTheme.heading2,
           ),
           const SizedBox(height: 4),
           Text(
-            'john.doe@example.com',
+            "${user?.email?? 'john.doe@example.com'}",
             style: AppTheme.bodyMedium.copyWith(
               color: AppTheme.textSecondary,
             ),
