@@ -1,9 +1,13 @@
+import 'package:Soulene/features/profile/pages/health_profile.dart';
 import 'package:flutter/material.dart';
-import '../../../core/theme/app_theme.dart';
-import '../../../shared/services/auth_service.dart';
-import '../../../shared/widgets/custom_button.dart';
+import '../../core/theme/app_theme.dart';
+import '../../shared/services/auth_service.dart';
+import '../../shared/widgets/custom_button.dart';
 import 'package:Soulene/shared/models/user_model.dart';
 import 'package:Soulene/core/services/api_service.dart';
+import 'pages/personal_info.dart';
+import 'pages/edit_profile.dart';
+// import 'pages/health_profile.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -13,12 +17,12 @@ class ProfileScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: AppTheme.backgroundLight,
       appBar: AppBar(
-        title: const Text('Profile'),
-        backgroundColor: Colors.transparent,
+        title: const Text('Profile', style: TextStyle(color: Colors.black),),
+        backgroundColor: Color(0xFFDEF3FD),
         elevation: 0,
         actions: [
           IconButton(
-            icon: const Icon(Icons.settings),
+            icon: const Icon(Icons.settings, color: Colors.black,),
             onPressed: () {
               // TODO: Navigate to settings
             },
@@ -40,7 +44,7 @@ class ProfileScreen extends StatelessWidget {
         child: Column(
           children: [
             // Profile Header
-            _buildProfileHeader(),
+            _buildProfileHeader(context),
             const SizedBox(height: 24),
 
             // Profile Options
@@ -60,7 +64,7 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildProfileHeader() {
+  Widget _buildProfileHeader(BuildContext context) {
     final user = ApiService.user != null
         ? User.fromJson(ApiService.user!)
         : null;
@@ -104,11 +108,15 @@ class ProfileScreen extends StatelessWidget {
               color: AppTheme.textSecondary,
             ),
           ),
-          const SizedBox(height: 16),
+           SizedBox(height: 16),
           CustomButton(
             text: 'Edit Profile',
             onPressed: () {
-              // TODO: Navigate to edit profile
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => EditProfilePage(user:ApiService.user!),
+                ),
+              );
             },
             type: ButtonType.secondary,
             height: 40,
@@ -123,12 +131,24 @@ class ProfileScreen extends StatelessWidget {
       ProfileOption(
         icon: Icons.person_outline,
         title: 'Personal Information',
-        onTap: () {},
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (context) => PersonalInfoPage(),
+            ),
+          );
+        },
       ),
       ProfileOption(
         icon: Icons.medical_information_outlined,
         title: 'Health Profile',
-        onTap: () {},
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (context) => HealthProfilePage(),
+            ),
+          );
+        },
       ),
       ProfileOption(
         icon: Icons.notifications_outlined,

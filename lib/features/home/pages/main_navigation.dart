@@ -4,7 +4,7 @@ import '../../dashboard/pages/dashboard_screen.dart';
 import '../../questionnaire/pages/questionnaire_list_screen.dart';
 import '../../exercise/pages/exercise_screen.dart';
 import '../../journal/pages/journal_screen.dart';
-import '../../profile/pages/profile_screen.dart';
+import '../../profile/profile_screen.dart';
 
 class MainNavigation extends StatefulWidget {
   const MainNavigation({super.key});

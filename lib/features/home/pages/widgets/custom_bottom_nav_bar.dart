@@ -38,42 +38,46 @@ class CustomBottomNavBar extends StatelessWidget {
               final isSelected = index == currentIndex;
 
               return GestureDetector(
-                onTap: () => onTap(index),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
-                  ),
-                  decoration: BoxDecoration(
-                    color: isSelected
-                        ? AppTheme.primaryColor.withOpacity(0.1)
-                        : Colors.transparent,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        isSelected ? item.activeIcon : item.icon,
-                        color: isSelected
-                            ? AppTheme.primaryColor
-                            : AppTheme.textTertiary,
-                        size: 24,
-                      ),
-                      if (isSelected) ...[
-                        const SizedBox(width: 8),
-                        Text(
-                          item.label,
-                          style: AppTheme.bodySmall.copyWith(
-                            color: AppTheme.primaryColor,
-                            fontWeight: FontWeight.w600,
-                          ),
+                  onTap: () => onTap(index),
+                    behavior: HitTestBehavior.opaque,
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? AppTheme.primaryColor.withOpacity(0.1)
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          isSelected ? item.activeIcon : item.icon,
+                          color: isSelected
+                              ? AppTheme.primaryColor
+                              : AppTheme.textTertiary,
+                          size: 24,
                         ),
+                        if (isSelected) ...[
+                          const SizedBox(width: 8),
+                          Flexible(
+                            child: Text(
+                              item.label,
+                              overflow: TextOverflow.ellipsis,
+                              style: AppTheme.bodySmall.copyWith(
+                                color: AppTheme.primaryColor,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
                       ],
-                    ],
+                    ),
                   ),
-                ),
               );
             }).toList(),
           ),

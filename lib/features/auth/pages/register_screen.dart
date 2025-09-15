@@ -115,16 +115,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
     final screenWidth = MediaQuery.of(context).size.width;
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        title: Text('Create Account',
-          style:
-            TextStyle(color: AppTheme.textPrimary, fontSize: 25,
-          ),
-          textAlign: TextAlign.center,
-        ),
-      ),
       body: Container(
         height: double.infinity,
         width: double.infinity,
@@ -134,290 +124,292 @@ class _RegisterScreenState extends State<RegisterScreen> {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
-        ),child: LoadingOverlay(
-        isLoading: _isLoading,
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24.0),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Center(
-                  child: Container(
-                    width: 80,
-                    height: 80,
-                    decoration: BoxDecoration(
-                      color: AppTheme.primaryColor,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Image.asset(
-                      "assets/icons/brain_outline.png",
-                      color: Colors.white,
-                      height: 50,
+        ),child: SafeArea(
+          child: LoadingOverlay(
+          isLoading: _isLoading,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24.0),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 80,
+                      height: 80,
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryColor,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Image.asset(
+                        "assets/icons/brain_outline.png",
+                        color: Colors.white,
+                        height: 50,
+                      ),
                     ),
                   ),
-                ),
-
-                SizedBox(height: screenHeight*0.01 ),
-                // Header
-                ShaderMask(
-                  // Define the gradient
-                  shaderCallback: (Rect bounds) {
-                    return const LinearGradient(
-                      colors: [AppTheme.primaryColor, Colors.purple],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ).createShader(bounds);
-                  },
-                  // The blend mode determines how the gradient interacts with the text
-                  blendMode: BlendMode.srcIn,
-                  // The Text widget to which the gradient will be applied
-                  child:
+          
+                  SizedBox(height: screenHeight*0.01 ),
+                  // Header
+                  ShaderMask(
+                    // Define the gradient
+                    shaderCallback: (Rect bounds) {
+                      return const LinearGradient(
+                        colors: [AppTheme.primaryColor, Colors.purple],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ).createShader(bounds);
+                    },
+                    // The blend mode determines how the gradient interacts with the text
+                    blendMode: BlendMode.srcIn,
+                    // The Text widget to which the gradient will be applied
+                    child:
+                    Text(
+                      'Join Soulene',
+                      style: AppTheme.heading1.copyWith(
+                        color: AppTheme.textPrimary,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+          
+                  SizedBox(height: screenHeight*0.007),
+          
                   Text(
-                    'Join Soulene',
-                    style: AppTheme.heading1.copyWith(
-                      color: AppTheme.textPrimary,
+                    'Create account to start your mental wellness journey',
+                    style: AppTheme.bodyLarge.copyWith(
+                      color: AppTheme.textSecondary,
                     ),
                     textAlign: TextAlign.center,
                   ),
-                ),
-
-                SizedBox(height: screenHeight*0.007),
-
-                Text(
-                  'Create account to start your mental wellness journey',
-                  style: AppTheme.bodyLarge.copyWith(
-                    color: AppTheme.textSecondary,
+          
+                  SizedBox(height: screenHeight*0.03),
+          
+                  // First Name and Last Name Row
+                  Row(
+                    children: [
+                      Expanded(
+                        child: CustomTextField(
+                          controller: _firstNameController,
+                          label: 'First Name',
+                          hint: 'Enter first name',
+                          prefixIcon: Icons.person_outline,
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'First name is required';
+                            }
+                            if (value.length < 2) {
+                              return 'Name too short';
+                            }
+                            return null;
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: CustomTextField(
+                          controller: _lastNameController,
+                          label: 'Last Name',
+                          hint: 'Enter last name',
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Last name is required';
+                            }
+                            if (value.length < 2) {
+                              return 'Name too short';
+                            }
+                            return null;
+                          },
+                        ),
+                      ),
+                    ],
                   ),
-                  textAlign: TextAlign.center,
-                ),
-
-                SizedBox(height: screenHeight*0.03),
-
-                // First Name and Last Name Row
-                Row(
-                  children: [
-                    Expanded(
-                      child: CustomTextField(
-                        controller: _firstNameController,
-                        label: 'First Name',
-                        hint: 'Enter first name',
-                        prefixIcon: Icons.person_outline,
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'First name is required';
-                          }
-                          if (value.length < 2) {
-                            return 'Name too short';
-                          }
-                          return null;
-                        },
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: CustomTextField(
-                        controller: _lastNameController,
-                        label: 'Last Name',
-                        hint: 'Enter last name',
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Last name is required';
-                          }
-                          if (value.length < 2) {
-                            return 'Name too short';
-                          }
-                          return null;
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-
-                 SizedBox(height: screenHeight*0.015),
-
-                // Email Field
-                CustomTextField(
-                  controller: _emailController,
-                  label: 'Email',
-                  hint: 'Enter your email',
-                  keyboardType: TextInputType.emailAddress,
-                  prefixIcon: Icons.email_outlined,
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter your email';
-                    }
-                    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
-                      return 'Please enter a valid email';
-                    }
-                    return null;
-                  },
-                ),
-
-                SizedBox(height: screenHeight*0.015),
-
-                // Phone Field (Optional)
-                CustomTextField(
-                  controller: _phoneController,
-                  label: 'Phone Number (Optional)',
-                  hint: 'Enter your phone number',
-                  keyboardType: TextInputType.phone,
-                  prefixIcon: Icons.phone_outlined,
-                  validator: (value) {
-                    if (value != null && value.isNotEmpty) {
-                      if (!RegExp(r'^\+?[1-9]\d{1,14}$').hasMatch(value)) {
-                        return 'Please enter a valid phone number';
+          
+                   SizedBox(height: screenHeight*0.015),
+          
+                  // Email Field
+                  CustomTextField(
+                    controller: _emailController,
+                    label: 'Email',
+                    hint: 'Enter your email',
+                    keyboardType: TextInputType.emailAddress,
+                    prefixIcon: Icons.email_outlined,
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Please enter your email';
                       }
-                    }
-                    return null;
-                  },
-                ),
-
-                SizedBox(height: screenHeight*0.015),
-
-                // Password Field
-                CustomTextField(
-                  controller: _passwordController,
-                  label: 'Password',
-                  hint: 'Create a strong password',
-                  obscureText: !_isPasswordVisible,
-                  prefixIcon: Icons.lock_outlined,
-                  suffixIcon: IconButton(
-                    icon: Icon(
-                      _isPasswordVisible ? Icons.visibility_off : Icons.visibility,
-                      color: AppTheme.textSecondary,
-                    ),
-                    onPressed: () {
-                      setState(() {
-                        _isPasswordVisible = !_isPasswordVisible;
-                      });
+                      if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
+                        return 'Please enter a valid email';
+                      }
+                      return null;
                     },
                   ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter a password';
-                    }
-                    if (value.length < 8) {
-                      return 'Password must be at least 8 characters';
-                    }
-                    if (!RegExp(r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)').hasMatch(value)) {
-                      return 'Password must contain uppercase, lowercase, and number';
-                    }
-                    return null;
-                  },
-                ),
-
-                SizedBox(height: screenHeight*0.015),
-
-                // Confirm Password Field
-                CustomTextField(
-                  controller: _confirmPasswordController,
-                  label: 'Confirm Password',
-                  hint: 'Confirm your password',
-                  obscureText: !_isConfirmPasswordVisible,
-                  prefixIcon: Icons.lock_outlined,
-                  suffixIcon: IconButton(
-                    icon: Icon(
-                      _isConfirmPasswordVisible ? Icons.visibility_off : Icons.visibility,
-                      color: AppTheme.textSecondary,
-                    ),
-                    onPressed: () {
-                      setState(() {
-                        _isConfirmPasswordVisible = !_isConfirmPasswordVisible;
-                      });
+          
+                  SizedBox(height: screenHeight*0.015),
+          
+                  // Phone Field (Optional)
+                  CustomTextField(
+                    controller: _phoneController,
+                    label: 'Phone Number (Optional)',
+                    hint: 'Enter your phone number',
+                    keyboardType: TextInputType.phone,
+                    prefixIcon: Icons.phone_outlined,
+                    validator: (value) {
+                      if (value != null && value.isNotEmpty) {
+                        if (!RegExp(r'^\+?[1-9]\d{1,14}$').hasMatch(value)) {
+                          return 'Please enter a valid phone number';
+                        }
+                      }
+                      return null;
                     },
                   ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please confirm your password';
-                    }
-                    if (value != _passwordController.text) {
-                      return 'Passwords do not match';
-                    }
-                    return null;
-                  },
-                ),
-
-                SizedBox(height: screenHeight*0.02),
-
-                // Terms and Conditions
-                Row(
-                  children: [
-                    Checkbox(
-                      value: _agreeToTerms,
-                      side: BorderSide(color: Colors.black38 ),
-                      onChanged: (value) {
+          
+                  SizedBox(height: screenHeight*0.015),
+          
+                  // Password Field
+                  CustomTextField(
+                    controller: _passwordController,
+                    label: 'Password',
+                    hint: 'Create a strong password',
+                    obscureText: !_isPasswordVisible,
+                    prefixIcon: Icons.lock_outlined,
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _isPasswordVisible ? Icons.visibility_off : Icons.visibility,
+                        color: AppTheme.textSecondary,
+                      ),
+                      onPressed: () {
                         setState(() {
-                          _agreeToTerms = value ?? false;
+                          _isPasswordVisible = !_isPasswordVisible;
                         });
                       },
-                      activeColor: AppTheme.primaryColor,
                     ),
-                    Expanded(
-                      child: RichText(
-                        text: TextSpan(
-                          style: AppTheme.bodyMedium,
-                          children: [
-                            const TextSpan(text: 'I agree to the '),
-                            TextSpan(
-                              text: 'Terms and Conditions',
-                              style: AppTheme.bodyMedium.copyWith(
-                                color: AppTheme.primaryColor,
-                                decoration: TextDecoration.underline,
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Please enter a password';
+                      }
+                      if (value.length < 8) {
+                        return 'Password must be at least 8 characters';
+                      }
+                      if (!RegExp(r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)').hasMatch(value)) {
+                        return 'Password must contain uppercase, lowercase, and number';
+                      }
+                      return null;
+                    },
+                  ),
+          
+                  SizedBox(height: screenHeight*0.015),
+          
+                  // Confirm Password Field
+                  CustomTextField(
+                    controller: _confirmPasswordController,
+                    label: 'Confirm Password',
+                    hint: 'Confirm your password',
+                    obscureText: !_isConfirmPasswordVisible,
+                    prefixIcon: Icons.lock_outlined,
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _isConfirmPasswordVisible ? Icons.visibility_off : Icons.visibility,
+                        color: AppTheme.textSecondary,
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          _isConfirmPasswordVisible = !_isConfirmPasswordVisible;
+                        });
+                      },
+                    ),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Please confirm your password';
+                      }
+                      if (value != _passwordController.text) {
+                        return 'Passwords do not match';
+                      }
+                      return null;
+                    },
+                  ),
+          
+                  SizedBox(height: screenHeight*0.02),
+          
+                  // Terms and Conditions
+                  Row(
+                    children: [
+                      Checkbox(
+                        value: _agreeToTerms,
+                        side: BorderSide(color: Colors.black38 ),
+                        onChanged: (value) {
+                          setState(() {
+                            _agreeToTerms = value ?? false;
+                          });
+                        },
+                        activeColor: AppTheme.primaryColor,
+                      ),
+                      Expanded(
+                        child: RichText(
+                          text: TextSpan(
+                            style: AppTheme.bodyMedium,
+                            children: [
+                              const TextSpan(text: 'I agree to the '),
+                              TextSpan(
+                                text: 'Terms and Conditions',
+                                style: AppTheme.bodyMedium.copyWith(
+                                  color: AppTheme.primaryColor,
+                                  decoration: TextDecoration.underline,
+                                ),
                               ),
-                            ),
-                            const TextSpan(text: ' and '),
-                            TextSpan(
-                              text: 'Privacy Policy',
-                              style: AppTheme.bodyMedium.copyWith(
-                                color: AppTheme.primaryColor,
-                                decoration: TextDecoration.underline,
+                              const TextSpan(text: ' and '),
+                              TextSpan(
+                                text: 'Privacy Policy',
+                                style: AppTheme.bodyMedium.copyWith(
+                                  color: AppTheme.primaryColor,
+                                  decoration: TextDecoration.underline,
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
-                    ),
-                  ],
-                ),
-
-                SizedBox(height: screenHeight*0.02),
-
-                // Register Button
-                CustomButton(
-                  text: 'Create Account',
-                  onPressed: _register,
-                  isLoading: _isLoading,
-                ),
-
-                SizedBox(height: screenHeight*0.02),
-
-                // Sign In Link
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      'Already have an account? ',
-                      style: AppTheme.bodyMedium,
-                    ),
-                    TextButton(
-                      onPressed: _goToLogin,
-                      child: Text(
-                        'Log In',
-                        style: AppTheme.bodyMedium.copyWith(
-                          color: AppTheme.primaryColor,
-                          fontWeight: FontWeight.w600,
+                    ],
+                  ),
+          
+                  SizedBox(height: screenHeight*0.02),
+          
+                  // Register Button
+                  CustomButton(
+                    text: 'Create Account',
+                    onPressed: _register,
+                    isLoading: _isLoading,
+                  ),
+          
+                  SizedBox(height: screenHeight*0.02),
+          
+                  // Sign In Link
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        'Already have an account? ',
+                        style: AppTheme.bodyMedium,
+                      ),
+                      TextButton(
+                        onPressed: _goToLogin,
+                        child: Text(
+                          'Log In',
+                          style: AppTheme.bodyMedium.copyWith(
+                            color: AppTheme.primaryColor,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
-                    ),
-                  ],
-                ),
-              ],
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
+                ),
         ),
-      ),
       ),
     );
   }
